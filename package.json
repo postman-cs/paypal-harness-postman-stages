@@ -1,0 +1,16 @@
+{
+  "name": "paypal-harness-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Harness-compatible entrypoint for pinned Postman-CS onboarding and contract-test actions.",
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "validate": "node scripts/verify-supply-chain.mjs && node scripts/validate-harness-templates.mjs",
+    "check": "pnpm run test && pnpm run validate"
+  }
+}

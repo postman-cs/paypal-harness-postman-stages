@@ -1,0 +1,48 @@
+# Kubernetes build infrastructure uses Harness's GitHub Actions Drone plugin.
+# The plugin requires privileged Docker-in-Docker. Security approval is a hard
+# prerequisite; prefer the native Action step on Harness Cloud/VM/local runners.
+pipeline:
+  name: PayPal Postman Contract Pipeline Kubernetes
+  identifier: paypal_postman_contract_pipeline_kubernetes
+  orgIdentifier: PAYPAL_ORG_ID
+  projectIdentifier: PAYPAL_PROJECT_ID
+  properties:
+    ci:
+      codebase:
+        connectorRef: PAYPAL_SCM_CONNECTOR
+        repoName: PAYPAL_SERVICE_REPOSITORY
+        build: <+input>
+  stages:
+    - stage:
+        name: Postman API Contract
+        identifier: postman_api_contract
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: PAYPAL_KUBERNETES_CONNECTOR
+              namespace: PAYPAL_CI_NAMESPACE
+              automountServiceAccountToken: false
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Plugin
+                  name: Run pinned PayPal Postman action
+                  identifier: run_pinned_paypal_postman_action
+                  spec:
+                    connectorRef: PAYPAL_DOCKER_HUB_CONNECTOR
+                    image: plugins/github-actions
+                    privileged: true
+                    settings:
+                      uses: PAYPAL_APPROVED_OWNER/paypal-harness-pipeline@FULL_40_CHARACTER_COMMIT_SHA
+                      with:
+                        operation: validate
+                        project-name: PAYPAL_FIRST_SERVICE
+                        spec-path: PAYPAL_OPENAPI_PATH
+                        test-workspace-name: Winter Trinity
+                        test-workspace-id: PAYPAL_WINTER_TRINITY_WORKSPACE_ID
+                      env:
+                        GITHUB_TOKEN: <+secrets.getValue("paypal_github_token")>

@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { parsePostmanUses, verifySupplyChain } from '../scripts/verify-supply-chain.mjs';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const action = readFileSync(resolve(import.meta.dirname, '..', 'action.yml'), 'utf8');
+
+test('parses only direct Postman-CS action references', () => {
+  const refs = parsePostmanUses(`
+    uses: postman-cs/example@0123456789012345678901234567890123456789
+    uses: actions/checkout@v4
+  `);
+  assert.deepEqual(refs, [{
+    repository: 'postman-cs/example',
+    ref: '0123456789012345678901234567890123456789',
+  }]);
+});
+
+test('rejects mutable references', () => {
+  const result = verifySupplyChain(
+    'uses: postman-cs/example@main',
+    { dependencies: { 'postman-cs/example': { commit: '0'.repeat(40) } } },
+  );
+  assert.match(result.errors.join('\n'), /not pinned to a full commit SHA/);
+});
+
+test('rejects lock drift', () => {
+  const result = verifySupplyChain(
+    `uses: postman-cs/example@${'1'.repeat(40)}`,
+    { dependencies: { 'postman-cs/example': { commit: '2'.repeat(40) } } },
+  );
+  assert.match(result.errors.join('\n'), /does not match its locked commit/);
+});
+
+test('keeps onboarding behind an explicit human risk gate', () => {
+  assert.match(action, /approve-onboarding-risk:[\s\S]*?default: "false"/);
+  assert.match(action, /OPERATION" = "onboard"[\s\S]*?APPROVE_ONBOARDING_RISK" != "true"/);
+});

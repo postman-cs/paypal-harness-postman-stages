@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "dependencies": {
+    "postman-cs/postman-api-onboarding-action": {
+      "repository": "https://github.com/postman-cs/postman-api-onboarding-action",
+      "commit": "d3d3776077fdcfa0b3e319e208dd963d18a0a0d9",
+      "purpose": "Create or reuse Postman assets, synchronize repository metadata, and optionally onboard Insights."
+    },
+    "postman-cs/postman-onboarding-tdd": {
+      "repository": "https://github.com/postman-cs/postman-onboarding-tdd",
+      "commit": "0647a2ab357ba10c34ededf553ec0e64f0a67e0f",
+      "purpose": "Validate setup or run PR-scoped spec-versus-implementation contract tests."
+    }
+  }
+}
+

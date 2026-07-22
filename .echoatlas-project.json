@@ -1,0 +1,15 @@
+{
+  "id": "paypal-harness-pipeline",
+  "name": "PayPal Harness Pipeline",
+  "description": "Customer-scoped working project for PayPal Harness pipeline design and validation; production execution remains human-gated.",
+  "entangledTasks": [
+    {
+      "id": "customer:paypal-harness-pipeline:validate-first-run",
+      "title": "Validate the first PayPal-owned Harness action run",
+      "description": "Confirm runner type and Node 24 support, source repository and PR context, first service/spec, Harness secret identifiers, and the customer owners. Run validate before contract-test. Human gate: Jason DeLeau or Varun Gnanaselvan confirms technical ownership and a PayPal pipeline owner approves the test execution.",
+      "status": "in_progress",
+      "priority": "high",
+      "dueDate": "2026-07-22"
+    }
+  ]
+}

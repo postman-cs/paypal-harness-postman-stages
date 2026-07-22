@@ -1,0 +1,96 @@
+# Import into a PayPal-owned Harness account. Replace all PAYPAL_* placeholders
+# through the Harness UI before saving. No credential belongs in this file.
+pipeline:
+  name: PayPal Postman Contract Pipeline
+  identifier: paypal_postman_contract_pipeline
+  orgIdentifier: PAYPAL_ORG_ID
+  projectIdentifier: PAYPAL_PROJECT_ID
+  properties:
+    ci:
+      codebase:
+        connectorRef: PAYPAL_SCM_CONNECTOR
+        repoName: PAYPAL_SERVICE_REPOSITORY
+        build: <+input>
+  variables:
+    - name: operation
+      type: String
+      required: true
+      value: <+input>.allowedValues(validate,cli-test,contract-test,onboard)
+    - name: project_name
+      type: String
+      required: true
+      value: <+input>
+    - name: spec_path
+      type: String
+      required: true
+      value: <+input>
+    - name: pr_number
+      type: String
+      required: false
+      value: <+input>
+    - name: winter_trinity_workspace_id
+      type: String
+      required: false
+      value: <+input>
+    - name: cli_smoke_collection_id
+      type: String
+      required: false
+      value: <+input>
+    - name: cli_contract_collection_id
+      type: String
+      required: false
+      value: <+input>
+    - name: cli_report_format
+      type: String
+      required: true
+      value: <+input>.allowedValues(junit,cli-only)
+  stages:
+    - stage:
+        name: Postman API Contract
+        identifier: postman_api_contract
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: VM
+            spec:
+              type: Pool
+              spec:
+                poolName: PAYPAL_RUNNER_POOL
+                os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Verify signed Postman CLI is pre-provisioned
+                  identifier: verify_postman_cli
+                  spec:
+                    shell: Bash
+                    command: |-
+                      set -euo pipefail
+                      command -v postman >/dev/null
+                      postman --version
+              - step:
+                  type: Action
+                  name: Run pinned PayPal Postman action
+                  identifier: run_pinned_paypal_postman_action
+                  spec:
+                    # Publish this repository to the approved PayPal/Postman
+                    # location, then replace this marker with a full commit SHA.
+                    uses: PAYPAL_APPROVED_OWNER/paypal-harness-pipeline@FULL_40_CHARACTER_COMMIT_SHA
+                    with:
+                      operation: <+pipeline.variables.operation>
+                      project-name: <+pipeline.variables.project_name>
+                      spec-path: <+pipeline.variables.spec_path>
+                      pr-number: <+pipeline.variables.pr_number>
+                      test-workspace-name: Winter Trinity
+                      test-workspace-id: <+pipeline.variables.winter_trinity_workspace_id>
+                      cli-smoke-collection-id: <+pipeline.variables.cli_smoke_collection_id>
+                      cli-contract-collection-id: <+pipeline.variables.cli_contract_collection_id>
+                      cli-report-format: <+pipeline.variables.cli_report_format>
+                      postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
+                      github-token: <+secrets.getValue("paypal_github_token")>
+                      config-write-mode: none
+                      repo-write-mode: none
+                      credential-preflight: enforce
+                      enable-insights: "false"

@@ -1,0 +1,339 @@
+name: PayPal Postman Harness Pipeline
+description: >-
+  A customer-consumable entrypoint that delegates directly to immutable
+  Postman-CS action revisions for setup validation, PR contract testing, or
+  API onboarding.
+author: Postman CSE
+
+inputs:
+  operation:
+    description: One of validate, cli-test, contract-test, or onboard.
+    required: false
+    default: validate
+  project-name:
+    description: Service name used by the selected Postman-CS action.
+    required: true
+  onboarding-config-path:
+    description: Repo-relative path to the Postman onboarding configuration.
+    required: false
+    default: .postman-template/onboarding.yml
+  spec-path:
+    description: Repo-relative path to the authoritative OpenAPI document.
+    required: false
+  workspace-id:
+    description: Existing customer workspace ID for onboard. Not used by sandbox tests.
+    required: false
+  test-workspace-name:
+    description: Exact sandbox workspace name. Test operations are locked to Winter Trinity.
+    required: false
+    default: Winter Trinity
+  test-workspace-id:
+    description: Optional expected Winter Trinity workspace ID for an additional identity check.
+    required: false
+  pr-number:
+    description: Pull request number for contract-test when event discovery is unavailable.
+    required: false
+  postman-api-key:
+    description: PMAK resolved from the customer secret manager. Never put this value in YAML.
+    required: false
+  postman-access-token:
+    description: Optional Postman service access token resolved from the customer secret manager.
+    required: false
+  github-token:
+    description: GitHub token used by the Postman-CS action when GitHub API access is required.
+    required: false
+  postman-team-id:
+    description: Optional explicit Postman team identifier.
+    required: false
+  workspace-team-id:
+    description: Optional numeric Postman sub-team identifier for org-mode workspace creation.
+    required: false
+  postman-region:
+    description: Postman data residency region, us or eu.
+    required: false
+    default: us
+  postman-stack:
+    description: Postman stack, prod or beta.
+    required: false
+    default: prod
+  config-write-mode:
+    description: TDD configuration mutation policy. Defaults to no writes.
+    required: false
+    default: none
+  repo-write-mode:
+    description: Onboarding repository mutation policy. Defaults to no writes.
+    required: false
+    default: none
+  credential-preflight:
+    description: Credential identity check policy, warn or enforce.
+    required: false
+    default: enforce
+  enable-insights:
+    description: Enable Postman Insights onboarding during the onboard operation.
+    required: false
+    default: "false"
+  cli-smoke-collection-id:
+    description: Optional collection ID run by operation=cli-test inside Winter Trinity.
+    required: false
+  cli-contract-collection-id:
+    description: Optional collection ID run by operation=cli-test inside Winter Trinity.
+    required: false
+  cli-environment-id:
+    description: Optional environment ID applied to CLI smoke and contract runs.
+    required: false
+  cli-report-directory:
+    description: Repo-relative directory for CLI JUnit reports.
+    required: false
+    default: .postman-cli-reports
+  cli-report-format:
+    description: >-
+      junit for Postman Collection v2 HTTP runs, or cli-only for collection
+      formats that do not support the JUnit reporter (including v3 YAML).
+    required: false
+    default: junit
+  approve-onboarding-risk:
+    description: >-
+      Explicit human gate for onboard while the pinned upstream composite has
+      transitive release-tag references. Must remain false for the initial proof.
+    required: false
+    default: "false"
+
+outputs:
+  operation:
+    description: Operation selected by the caller.
+    value: ${{ inputs.operation }}
+  status:
+    description: TDD status for validate/contract-test, or completed for onboarding.
+    value: ${{ steps.validate.outputs.status || steps.contract_test.outputs.status || steps.cli_test.outcome || steps.onboard.outcome }}
+  workspace-id:
+    description: Workspace selected or created by the downstream Postman-CS action.
+    value: ${{ steps.cli_workspace.outputs.workspace-id || steps.contract_test.outputs.workspace-id || steps.onboard.outputs.workspace-id }}
+  junit-path:
+    description: JUnit report emitted by contract-test.
+    value: ${{ steps.contract_test.outputs.junit-path }}
+  cli-junit-directory:
+    description: JUnit report directory emitted by operation=cli-test.
+    value: ${{ inputs.cli-report-directory }}
+
+runs:
+  using: composite
+  steps:
+    - id: guard
+      name: Validate wrapper inputs without exposing secrets
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+        POSTMAN_API_KEY: ${{ inputs.postman-api-key }}
+        POSTMAN_ACCESS_TOKEN: ${{ inputs.postman-access-token }}
+        CONFIG_WRITE_MODE: ${{ inputs.config-write-mode }}
+        REPO_WRITE_MODE: ${{ inputs.repo-write-mode }}
+        APPROVE_ONBOARDING_RISK: ${{ inputs.approve-onboarding-risk }}
+        TEST_WORKSPACE_NAME: ${{ inputs.test-workspace-name }}
+        CLI_SMOKE_COLLECTION_ID: ${{ inputs.cli-smoke-collection-id }}
+        CLI_CONTRACT_COLLECTION_ID: ${{ inputs.cli-contract-collection-id }}
+        CLI_REPORT_FORMAT: ${{ inputs.cli-report-format }}
+      run: |
+        set -euo pipefail
+        case "$OPERATION" in
+          validate|cli-test|contract-test|onboard) ;;
+          *) echo "::error::operation must be validate, cli-test, contract-test, or onboard"; exit 2 ;;
+        esac
+        case "$CONFIG_WRITE_MODE" in
+          none|commit-only|commit-and-push) ;;
+          *) echo "::error::config-write-mode must be none, commit-only, or commit-and-push"; exit 2 ;;
+        esac
+        case "$REPO_WRITE_MODE" in
+          none|commit-only|commit-and-push) ;;
+          *) echo "::error::repo-write-mode must be none, commit-only, or commit-and-push"; exit 2 ;;
+        esac
+        if [ "$OPERATION" != "validate" ] && [ -z "$POSTMAN_API_KEY" ] && [ -z "$POSTMAN_ACCESS_TOKEN" ]; then
+          echo "::error::A Postman credential must be supplied through the CI secret manager for this operation."
+          exit 2
+        fi
+        if [ "$OPERATION" = "cli-test" ] || [ "$OPERATION" = "contract-test" ]; then
+          if [ -z "$POSTMAN_API_KEY" ]; then
+            echo "::error::CLI-backed test operations require a PMAK from the CI secret manager."
+            exit 2
+          fi
+          if [ "$TEST_WORKSPACE_NAME" != "Winter Trinity" ]; then
+            echo "::error::Sandbox test operations are locked to the exact Winter Trinity workspace name."
+            exit 2
+          fi
+        fi
+        if [ "$OPERATION" = "cli-test" ] && [ -z "$CLI_SMOKE_COLLECTION_ID" ] && [ -z "$CLI_CONTRACT_COLLECTION_ID" ]; then
+          echo "::error::cli-test requires cli-smoke-collection-id, cli-contract-collection-id, or both."
+          exit 2
+        fi
+        case "$CLI_REPORT_FORMAT" in
+          junit|cli-only) ;;
+          *) echo "::error::cli-report-format must be junit or cli-only"; exit 2 ;;
+        esac
+        if [ "$OPERATION" = "onboard" ] && [ "$APPROVE_ONBOARDING_RISK" != "true" ]; then
+          echo "::error::onboard is human-gated until the documented transitive action-pin risk is remediated or explicitly accepted."
+          exit 2
+        fi
+
+    - id: cli_available
+      if: ${{ inputs.operation == 'cli-test' || inputs.operation == 'contract-test' }}
+      name: Require the pre-provisioned Postman CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v postman >/dev/null 2>&1; then
+          echo "::error::The runner must provide the signed Postman CLI. Runtime curl-pipe installation is intentionally disabled."
+          exit 2
+        fi
+        postman --version
+
+    - id: cli_workspace
+      if: ${{ inputs.operation == 'cli-test' || inputs.operation == 'contract-test' }}
+      name: Resolve and lock the Winter Trinity test workspace with Postman CLI
+      shell: bash
+      env:
+        POSTMAN_API_KEY: ${{ inputs.postman-api-key }}
+        POSTMAN_REGION: ${{ inputs.postman-region }}
+        TEST_WORKSPACE_NAME: ${{ inputs.test-workspace-name }}
+        TEST_WORKSPACE_ID: ${{ inputs.test-workspace-id }}
+      run: |
+        set -euo pipefail
+        echo "::add-mask::$POSTMAN_API_KEY"
+        LOGIN_ARGS=(login --with-api-key "$POSTMAN_API_KEY")
+        if [ "$POSTMAN_REGION" = "eu" ]; then LOGIN_ARGS+=(--region eu); fi
+        postman "${LOGIN_ARGS[@]}" >/dev/null
+        SEARCH_RESULT="${RUNNER_TEMP:-/tmp}/postman-winter-trinity-workspaces.json"
+        postman search workspaces "$TEST_WORKSPACE_NAME" \
+          --ownership organization \
+          --limit 25 \
+          --output json > "$SEARCH_RESULT"
+        node "$GITHUB_ACTION_PATH/scripts/resolve-workspace.mjs" \
+          --input "$SEARCH_RESULT" \
+          --expected-name "$TEST_WORKSPACE_NAME" \
+          --expected-id "$TEST_WORKSPACE_ID" \
+          --github-output "$GITHUB_OUTPUT"
+
+    - id: cli_workspace_config
+      if: ${{ inputs.operation == 'contract-test' }}
+      name: Verify TDD config targets the resolved Winter Trinity workspace
+      shell: bash
+      env:
+        RESOLVED_WORKSPACE_ID: ${{ steps.cli_workspace.outputs.workspace-id }}
+      run: |
+        set -euo pipefail
+        node "$GITHUB_ACTION_PATH/scripts/validate-tdd-workspace.mjs" \
+          --config "${{ inputs.onboarding-config-path }}" \
+          --expected-name "${{ inputs.test-workspace-name }}" \
+          --expected-id "$RESOLVED_WORKSPACE_ID" \
+          --spec-path "${{ inputs.spec-path }}" \
+          --github-output "$GITHUB_OUTPUT"
+
+    - id: cli_spec_lint
+      if: ${{ inputs.operation == 'contract-test' }}
+      name: Lint the authoritative spec with Winter Trinity governance
+      shell: bash
+      env:
+        RESOLVED_WORKSPACE_ID: ${{ steps.cli_workspace.outputs.workspace-id }}
+        RESOLVED_SPEC_PATH: ${{ steps.cli_workspace_config.outputs.spec-path }}
+      run: |
+        set -euo pipefail
+        REPORT_DIR="${RUNNER_TEMP:-/tmp}/postman-cli-reports"
+        mkdir -p "$REPORT_DIR"
+        postman spec lint "$RESOLVED_SPEC_PATH" \
+          --workspace-id "$RESOLVED_WORKSPACE_ID" \
+          --fail-severity ERROR \
+          --output JSON > "$REPORT_DIR/spec-lint.json"
+
+    - id: cli_test
+      if: ${{ inputs.operation == 'cli-test' }}
+      name: Run Winter Trinity collections with the Postman CLI
+      shell: bash
+      env:
+        SMOKE_COLLECTION_ID: ${{ inputs.cli-smoke-collection-id }}
+        CONTRACT_COLLECTION_ID: ${{ inputs.cli-contract-collection-id }}
+        ENVIRONMENT_ID: ${{ inputs.cli-environment-id }}
+        REPORT_DIRECTORY: ${{ inputs.cli-report-directory }}
+        REPORT_FORMAT: ${{ inputs.cli-report-format }}
+      run: |
+        set -euo pipefail
+        case "$REPORT_DIRECTORY" in
+          /*|*..*) echo "::error::cli-report-directory must be a safe repo-relative path"; exit 2 ;;
+        esac
+        mkdir -p "$REPORT_DIRECTORY"
+        ENV_ARGS=()
+        if [ -n "$ENVIRONMENT_ID" ]; then ENV_ARGS=(-e "$ENVIRONMENT_ID"); fi
+        run_collection() {
+          local collection_id="$1"
+          local report_name="$2"
+          if [ "$REPORT_FORMAT" = "junit" ]; then
+            postman collection run "$collection_id" "${ENV_ARGS[@]}" \
+              --bail failure \
+              --reporters cli,junit \
+              --reporter-junit-export "$REPORT_DIRECTORY/$report_name.xml"
+          else
+            postman collection run "$collection_id" "${ENV_ARGS[@]}" \
+              --bail failure \
+              --reporters cli
+          fi
+        }
+        FAILED=0
+        if [ -n "$SMOKE_COLLECTION_ID" ]; then
+          run_collection "$SMOKE_COLLECTION_ID" smoke || FAILED=1
+        fi
+        if [ -n "$CONTRACT_COLLECTION_ID" ]; then
+          run_collection "$CONTRACT_COLLECTION_ID" contract || FAILED=1
+        fi
+        exit "$FAILED"
+
+    - id: validate
+      if: ${{ inputs.operation == 'validate' }}
+      name: Validate Postman TDD setup
+      uses: postman-cs/postman-onboarding-tdd@0647a2ab357ba10c34ededf553ec0e64f0a67e0f
+      with:
+        mode: validate
+        onboarding-config-path: ${{ inputs.onboarding-config-path }}
+        project-name: ${{ inputs.project-name }}
+        spec-path: ${{ inputs.spec-path }}
+        postman-region: ${{ inputs.postman-region }}
+        postman-stack: ${{ inputs.postman-stack }}
+
+    - id: contract_test
+      if: ${{ inputs.operation == 'contract-test' }}
+      name: Run Postman spec-versus-implementation contract test
+      uses: postman-cs/postman-onboarding-tdd@0647a2ab357ba10c34ededf553ec0e64f0a67e0f
+      with:
+        mode: run
+        onboarding-config-path: ${{ inputs.onboarding-config-path }}
+        project-name: ${{ inputs.project-name }}
+        spec-path: ${{ inputs.spec-path }}
+        pr-number: ${{ inputs.pr-number }}
+        postman-api-key: ${{ inputs.postman-api-key }}
+        postman-access-token: ${{ inputs.postman-access-token }}
+        github-token: ${{ inputs.github-token }}
+        workspace-team-id: ${{ inputs.workspace-team-id }}
+        config-write-mode: ${{ inputs.config-write-mode }}
+        postman-region: ${{ inputs.postman-region }}
+        postman-stack: ${{ inputs.postman-stack }}
+
+    - id: onboard
+      if: ${{ inputs.operation == 'onboard' }}
+      name: Onboard service with Postman
+      uses: postman-cs/postman-api-onboarding-action@d3d3776077fdcfa0b3e319e208dd963d18a0a0d9
+      with:
+        project-name: ${{ inputs.project-name }}
+        workspace-id: ${{ inputs.workspace-id }}
+        spec-path: ${{ inputs.spec-path }}
+        postman-api-key: ${{ inputs.postman-api-key }}
+        postman-access-token: ${{ inputs.postman-access-token }}
+        github-token: ${{ inputs.github-token }}
+        postman-team-id: ${{ inputs.postman-team-id }}
+        workspace-team-id: ${{ inputs.workspace-team-id }}
+        postman-region: ${{ inputs.postman-region }}
+        postman-stack: ${{ inputs.postman-stack }}
+        credential-preflight: ${{ inputs.credential-preflight }}
+        repo-write-mode: ${{ inputs.repo-write-mode }}
+        enable-insights: ${{ inputs.enable-insights }}
+
+    - id: cli_logout
+      if: ${{ always() && (inputs.operation == 'cli-test' || inputs.operation == 'contract-test') }}
+      name: Remove Postman CLI credentials from the runner
+      shell: bash
+      run: postman logout >/dev/null 2>&1 || true
