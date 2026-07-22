@@ -6,6 +6,10 @@ four-file catalog in [`harness/stages`](harness/stages/README.md); it calls
 reviewed `postman-cs` repositories directly and uses Postman CLI as the test
 execution plane.
 
+For production, PayPal links the generated Harness stage templates from
+`postman-cs/paypal-harness-postman-stages` rather than copying them or using a
+personal wrapper. Start with the [Jason handoff](docs/JASON-QUICKSTART.md).
+
 ## One stage per PayPal ask
 
 | Outcome | File |
@@ -42,6 +46,11 @@ directly. No stage depends on the private personal wrapper. The approved commits
 are recorded in `postman-cs.lock.json`, and validation rejects mutable or
 unlocked top-level references.
 
+The guarded installer also verifies that PayPal's Harness Git connector points
+to `postman-cs/paypal-harness-postman-stages`, that both linked remote templates
+resolve from their approved paths on `main`, and that the linked version is
+`v0.1.0`. It refuses forks and inline production copies.
+
 The reviewed regular onboarding composite itself currently includes
 version-tagged transitive Postman-CS references. Its top-level revision is
 immutable; complete transitive immutability remains a production-readiness
@@ -61,6 +70,16 @@ No credential is stored in this repository.
 
 ```sh
 pnpm run check
+```
+
+To install the two linked stages into an existing pipeline, run the installer
+in dry-run mode first. It requires an explicit downstream stage anchor, creates
+a rollback backup on apply, verifies Harness read-back, and is idempotent:
+
+```sh
+HARNESS_API_KEY='...' pnpm harness:install -- \
+  --account ACCOUNT --org ORG --project PROJECT --pipeline PIPELINE \
+  --connector POSTMAN_CS_GITHUB --before-stage PROMOTION_GATE --dry-run
 ```
 
 The suite checks stage shape, secret leakage, direct repository pins, write

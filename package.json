@@ -10,7 +10,12 @@
   },
   "scripts": {
     "test": "node --test",
-    "validate": "node scripts/verify-supply-chain.mjs && node scripts/validate-harness-templates.mjs",
+    "harness:templates": "node scripts/build-remote-templates.mjs",
+    "harness:install": "node scripts/install-paypal-postman-stages.mjs",
+    "validate": "node scripts/build-remote-templates.mjs && node scripts/verify-supply-chain.mjs && node scripts/validate-harness-templates.mjs",
     "check": "pnpm run test && pnpm run validate"
+  },
+  "devDependencies": {
+    "yaml": "2.8.1"
   }
 }

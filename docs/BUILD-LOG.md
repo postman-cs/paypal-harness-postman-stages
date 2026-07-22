@@ -61,3 +61,20 @@ Readback confirmed the regular onboarding SHA, CLI gate, absence of TDD, and
 absence of the personal wrapper. The definition identifier is
 `PayPal_Jason_Orders_DropIn_Proof`; execution remains intentionally pending the
 approved Winter Trinity values.
+
+## Production handoff hardening — 2026-07-22
+
+- Added generated Harness remote stage templates at version `v0.1.0`; their
+  canonical source is the reviewed customer stage catalog.
+- Locked the production delivery source to
+  `postman-cs/paypal-harness-postman-stages@main` and retained immutable full-SHA
+  runtime calls to the underlying `postman-cs` actions.
+- Added connector URL and remote-template metadata preflight. Production install
+  fails for a fork, wrapper, inline collision, wrong Git file, wrong version, or
+  mutable/non-Postman-CS Action reference.
+- Added a dry-run/apply/rollback installer for an existing PayPal pipeline.
+  Apply requires an explicit downstream anchor, writes a mode-0600 local backup,
+  reads the Harness definition back, and verifies idempotent linked stages.
+- Added deterministic template generation, collision and ordering tests, source
+  policy tests, connector/template preflight tests, and a non-secret Jason input
+  manifest. The full local suite passes 29 tests.

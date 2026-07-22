@@ -1,8 +1,11 @@
 # Add Postman stages to an existing PayPal Harness pipeline
 
-PayPal does not need to adopt a replacement pipeline. Each file in
-`harness/stages` is a single `stage:` object that inherits the parent
-repository, trigger, connector, revision, and downstream controls.
+PayPal does not need to adopt a replacement pipeline. The canonical files in
+`harness/stages` generate remote stage templates in `.harness/templates`.
+Production links those remote templates from
+`postman-cs/paypal-harness-postman-stages`; it does not copy inline YAML or use
+a personal wrapper. The linked stages inherit the parent repository, trigger,
+connector, revision, and downstream controls.
 
 ## First delivery for Jason
 
@@ -19,8 +22,11 @@ collection execution, failure gating, and JUnit.
 
 ## Install
 
-1. Open the current Harness CI pipeline in YAML view.
-2. Copy the desired `stage:` objects into `pipeline.stages` in the order above.
+1. Configure a Harness Git connector scoped exactly to
+   `postman-cs/paypal-harness-postman-stages` and import the two approved files
+   in `.harness/templates` as remote stage templates.
+2. Run `pnpm harness:install -- ... --dry-run`, then `--apply`, with the
+   existing downstream governance/promotion stage supplied as `--before-stage`.
 3. Preserve the parent's `properties.ci.codebase`, trigger, connector, and
    deployment stages.
 4. Replace only the stage runtime block if PayPal uses a VM or Kubernetes
@@ -38,6 +44,10 @@ collection execution, failure gating, and JUnit.
 9. Run the CLI quality stage twice with identical inputs.
 10. Confirm stable IDs, no duplicate assets, identical results, and visible
     JUnit before introducing a private service.
+
+The installer validates the connector URL and both template Git metadata
+records before it will change the pipeline. See `docs/JASON-QUICKSTART.md` for
+the exact handoff commands and rollback flow.
 
 ## Public Orders source
 

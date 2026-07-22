@@ -7,3 +7,4 @@ node_modules/
 *.log
 .postman-cli-reports/
 .reports/
+.harness-backups/

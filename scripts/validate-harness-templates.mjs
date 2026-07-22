@@ -17,6 +17,10 @@ const stageTemplates = [
   'harness/stages/postman-to-git-sync.yaml',
   'harness/stages/runtime-route-discovery.yaml',
 ];
+const remoteTemplates = [
+  '.harness/templates/paypal-postman-onboarding-v0.1.0.yaml',
+  '.harness/templates/paypal-postman-cli-quality-gate-v0.1.0.yaml',
+];
 const expectedStageActions = new Map([
   ['harness/stages/spec-to-postman-onboarding.yaml', 'postman-cs/postman-api-onboarding-action'],
   ['harness/stages/postman-to-git-sync.yaml', 'postman-cs/postman-repo-sync-action'],
@@ -76,6 +80,23 @@ for (const relative of stageTemplates) {
   }
 }
 
+for (const relative of remoteTemplates) {
+  const source = readFileSync(resolve(root, relative), 'utf8');
+  checkSecretsAndMutableRefs(relative, source);
+  if (!/^template:$/m.test(source) || !/^\s+type: Stage$/m.test(source)) {
+    console.error(`ERROR: ${relative} must be a Harness stage template.`);
+    failed = true;
+  }
+  if (!source.includes('source: postman-cs/paypal-harness-postman-stages')) {
+    console.error(`ERROR: ${relative} must declare the production postman-cs delivery source.`);
+    failed = true;
+  }
+  if (source.includes('danielshively-source')) {
+    console.error(`ERROR: ${relative} must not contain a personal namespace.`);
+    failed = true;
+  }
+}
+
 const onboarding = readFileSync(resolve(root, stageTemplates[0]), 'utf8');
 if (!/repo-write-mode: none/.test(onboarding) || !/skip-built-in-tests: "true"/.test(onboarding)) {
   console.error('ERROR: onboarding must leave Git untouched and delegate tests to the CLI stage.');
@@ -90,4 +111,4 @@ for (const required of [/postman spec lint/, /postman collection run/, /type: JU
 }
 
 if (failed) process.exitCode = 1;
-else console.log(`Validated ${wrapperTemplates.length} wrapper pipeline(s) and ${stageTemplates.length} customer drop-in stage(s).`);
+else console.log(`Validated ${wrapperTemplates.length} wrapper pipeline(s), ${stageTemplates.length} customer drop-in stage(s), and ${remoteTemplates.length} production remote template(s).`);

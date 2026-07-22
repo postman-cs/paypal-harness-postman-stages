@@ -1,0 +1,148 @@
+# GENERATED from harness/stages/postman-cli-quality-gate.yaml; run pnpm harness:templates to refresh.
+template:
+  name: PayPal - Postman CLI quality gate
+  identifier: paypal_postman_cli_quality_gate
+  versionLabel: v0.1.0
+  type: Stage
+  description: Read-only Postman CLI lint and collection execution gate with Harness JUnit results.
+  tags:
+    owner: postman-cs
+    customer: paypal
+    source: postman-cs/paypal-harness-postman-stages
+  spec:
+    type: CI
+    variables:
+      - name: winter_trinity_workspace_id
+        type: String
+        required: true
+        value: <+input>
+      - name: smoke_collection_id
+        type: String
+        required: false
+        value: <+input>
+      - name: contract_collection_id
+        type: String
+        required: false
+        value: <+input>
+      - name: onboarding_collections_json
+        type: String
+        required: false
+        value: <+input>
+      - name: environment_id
+        type: String
+        required: false
+        value: <+input>
+    spec:
+      cloneCodebase: true
+      platform:
+        os: Linux
+        arch: Amd64
+      runtime:
+        type: Cloud
+        spec: {}
+      execution:
+        steps:
+          - step:
+              type: Run
+              name: Prepare immutable PayPal Orders input
+              identifier: prepare_paypal_orders_input
+              spec:
+                shell: Sh
+                command: |-
+                  set -eu
+                  mkdir -p .postman-stage/openapi .postman-cli-reports
+                  curl --fail --silent --show-error --location \
+                    https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json \
+                    --output .postman-stage/openapi/checkout_orders_v2.json
+                  printf '%s  %s\n' \
+                    14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6 \
+                    .postman-stage/openapi/checkout_orders_v2.json | sha256sum --check --status
+          - step:
+              type: Run
+              name: Execute with Postman CLI
+              identifier: execute_with_postman_cli
+              spec:
+                shell: Sh
+                command: |-
+                  set -eu
+                  command -v postman >/dev/null || {
+                    echo 'The runner image must pre-provision the signed Postman CLI.' >&2
+                    exit 2
+                  }
+                  postman --version
+                  POSTMAN_API_KEY='<+secrets.getValue("paypal_postman_api_key")>'
+                  WORKSPACE_ID='<+stage.variables.winter_trinity_workspace_id>'
+                  SMOKE_ID='<+stage.variables.smoke_collection_id>'
+                  CONTRACT_ID='<+stage.variables.contract_collection_id>'
+                  COLLECTIONS_JSON='<+stage.variables.onboarding_collections_json>'
+                  ENVIRONMENT_ID='<+stage.variables.environment_id>'
+                  [ -n "$POSTMAN_API_KEY" ]
+                  [ -n "$WORKSPACE_ID" ]
+                  if [ -n "$COLLECTIONS_JSON" ]; then
+                    printf '%s' "$COLLECTIONS_JSON" > .postman-cli-reports/onboarding-collections.json
+                    [ -n "$SMOKE_ID" ] || SMOKE_ID="$(node -e "const x=JSON.parse(require('node:fs').readFileSync(process.argv[1],'utf8')); process.stdout.write(String(x.smoke||''))" .postman-cli-reports/onboarding-collections.json)"
+                    [ -n "$CONTRACT_ID" ] || CONTRACT_ID="$(node -e "const x=JSON.parse(require('node:fs').readFileSync(process.argv[1],'utf8')); process.stdout.write(String(x.contract||''))" .postman-cli-reports/onboarding-collections.json)"
+                  fi
+                  [ -n "$SMOKE_ID$CONTRACT_ID" ] || {
+                    echo 'Provide at least one approved Winter Trinity collection ID.' >&2
+                    exit 2
+                  }
+                  trap 'postman logout >/dev/null 2>&1 || true' EXIT
+                  postman login --with-api-key "$POSTMAN_API_KEY" >/dev/null
+                  postman search workspaces 'Winter Trinity' \
+                    --ownership organization --limit 25 --output json \
+                    > .postman-cli-reports/workspaces.json
+                  EXPECTED_WORKSPACE_ID="$WORKSPACE_ID" node <<'NODE'
+                  const fs = require('node:fs');
+                  const root = JSON.parse(fs.readFileSync('.postman-cli-reports/workspaces.json', 'utf8'));
+                  const seen = new Set();
+                  function walk(value) {
+                    if (!value || typeof value !== 'object') return;
+                    if (Array.isArray(value)) return value.forEach(walk);
+                    const name = value.name;
+                    const id = value.id || value.workspaceId || value.uid;
+                    if (name === 'Winter Trinity' && id) seen.add(String(id));
+                    Object.values(value).forEach(walk);
+                  }
+                  walk(root);
+                  if (!seen.has(process.env.EXPECTED_WORKSPACE_ID)) {
+                    throw new Error('The supplied ID is not an exact organization-owned Winter Trinity match.');
+                  }
+                  NODE
+                  postman spec lint .postman-stage/openapi/checkout_orders_v2.json \
+                    --workspace-id "$WORKSPACE_ID" --fail-severity ERROR --output JSON \
+                    > .postman-cli-reports/spec-lint.json
+                  ENV_ARGS=''
+                  [ -z "$ENVIRONMENT_ID" ] || ENV_ARGS="-e $ENVIRONMENT_ID"
+                  FAILED=0
+                  if [ -n "$SMOKE_ID" ]; then
+                    # shellcheck disable=SC2086
+                    postman collection run "$SMOKE_ID" $ENV_ARGS --bail failure \
+                      --reporters cli,junit \
+                      --reporter-junit-export .postman-cli-reports/smoke.xml || FAILED=1
+                  fi
+                  if [ -n "$CONTRACT_ID" ]; then
+                    # shellcheck disable=SC2086
+                    postman collection run "$CONTRACT_ID" $ENV_ARGS --bail failure \
+                      --reporters cli,junit \
+                      --reporter-junit-export .postman-cli-reports/contract.xml || FAILED=1
+                  fi
+                  echo 'POSTMAN_HARNESS event=stage_complete stage=postman-cli-quality-gate writePolicy=none'
+                  echo 'POSTMAN_HARNESS executor=postman-cli sourceStage=postman-cs/postman-api-onboarding-action'
+                  exit "$FAILED"
+                reports:
+                  type: JUnit
+                  spec:
+                    paths:
+                      - .postman-cli-reports/*.xml
+          - step:
+              type: Run
+              name: Summarize CLI artifacts
+              identifier: summarize_cli_artifacts
+              when:
+                stageStatus: All
+              spec:
+                shell: Sh
+                command: |-
+                  set -eu
+                  find .postman-cli-reports -maxdepth 1 -type f -print 2>/dev/null | sort || true
