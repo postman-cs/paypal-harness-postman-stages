@@ -114,6 +114,15 @@ outputs:
   cli-junit-directory:
     description: JUnit report directory emitted by operation=cli-test.
     value: ${{ inputs.cli-report-directory }}
+  run-fingerprint:
+    description: Deterministic SHA-256 fingerprint of immutable, non-secret execution inputs.
+    value: ${{ steps.evidence.outputs.run-fingerprint }}
+  evidence-path:
+    description: Sanitized JSON evidence path, stable across identical reruns.
+    value: ${{ steps.evidence.outputs.evidence-path }}
+  summary-path:
+    description: Sanitized Markdown build summary path, stable across identical reruns.
+    value: ${{ steps.evidence.outputs.summary-path }}
 
 runs:
   using: composite
@@ -132,6 +141,10 @@ runs:
         CLI_SMOKE_COLLECTION_ID: ${{ inputs.cli-smoke-collection-id }}
         CLI_CONTRACT_COLLECTION_ID: ${{ inputs.cli-contract-collection-id }}
         CLI_REPORT_FORMAT: ${{ inputs.cli-report-format }}
+        PROJECT_NAME: ${{ inputs.project-name }}
+        CONFIG_PATH: ${{ inputs.onboarding-config-path }}
+        SPEC_PATH: ${{ inputs.spec-path }}
+        REPORT_DIRECTORY: ${{ inputs.cli-report-directory }}
       run: |
         set -euo pipefail
         case "$OPERATION" in
@@ -168,10 +181,37 @@ runs:
           junit|cli-only) ;;
           *) echo "::error::cli-report-format must be junit or cli-only"; exit 2 ;;
         esac
+        case "$PROJECT_NAME" in
+          ''|*[!A-Za-z0-9._-]*) echo "::error::project-name must use only letters, numbers, dot, underscore, or hyphen"; exit 2 ;;
+        esac
+        for entry in "$CONFIG_PATH" "$SPEC_PATH" "$REPORT_DIRECTORY"; do
+          case "$entry" in
+            /*|*../*|../*|*/..) echo "::error::repository paths must be relative and cannot traverse parent directories"; exit 2 ;;
+          esac
+        done
         if [ "$OPERATION" = "onboard" ] && [ "$APPROVE_ONBOARDING_RISK" != "true" ]; then
           echo "::error::onboard is human-gated until the documented transitive action-pin risk is remediated or explicitly accepted."
           exit 2
         fi
+
+    - id: evidence
+      name: Initialize sanitized build evidence
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+        PROJECT_NAME: ${{ inputs.project-name }}
+        CONFIG_PATH: ${{ inputs.onboarding-config-path }}
+        SPEC_PATH: ${{ inputs.spec-path }}
+        WORKSPACE_NAME: ${{ inputs.test-workspace-name }}
+        WORKSPACE_ID: ${{ inputs.test-workspace-id }}
+        SMOKE_COLLECTION_ID: ${{ inputs.cli-smoke-collection-id }}
+        CONTRACT_COLLECTION_ID: ${{ inputs.cli-contract-collection-id }}
+        ENVIRONMENT_ID: ${{ inputs.cli-environment-id }}
+        REPORT_DIRECTORY: ${{ inputs.cli-report-directory }}
+        REPORT_FORMAT: ${{ inputs.cli-report-format }}
+        CONFIG_WRITE_MODE: ${{ inputs.config-write-mode }}
+        REPO_WRITE_MODE: ${{ inputs.repo-write-mode }}
+      run: node "$GITHUB_ACTION_PATH/scripts/build-evidence.mjs" start
 
     - id: cli_available
       if: ${{ inputs.operation == 'cli-test' || inputs.operation == 'contract-test' }}
@@ -337,3 +377,15 @@ runs:
       name: Remove Postman CLI credentials from the runner
       shell: bash
       run: postman logout >/dev/null 2>&1 || true
+
+    - id: evidence_finish
+      if: ${{ always() && steps.evidence.outcome == 'success' }}
+      name: Finalize sanitized build log and artifact manifest
+      shell: bash
+      env:
+        REPORT_DIRECTORY: ${{ inputs.cli-report-directory }}
+        EVIDENCE_PATH: ${{ steps.evidence.outputs.evidence-path }}
+        SUMMARY_PATH: ${{ steps.evidence.outputs.summary-path }}
+        RESULT_STATUS: ${{ steps.validate.outputs.status || steps.contract_test.outputs.status || steps.cli_test.outcome || steps.onboard.outcome || 'failure' }}
+        RESOLVED_WORKSPACE_ID: ${{ steps.cli_workspace.outputs.workspace-id || steps.contract_test.outputs.workspace-id || steps.onboard.outputs.workspace-id }}
+      run: node "$GITHUB_ACTION_PATH/scripts/build-evidence.mjs" finish

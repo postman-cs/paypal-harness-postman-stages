@@ -1,0 +1,154 @@
+name: PayPal Harness wrapper verification
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.9.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+
+  public-paypal-validation-idempotency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - name: Prepare pinned public PayPal Orders v2 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .postman-template harness/specs scripts
+          curl -fsSL \
+            https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json \
+            -o harness/specs/paypal-orders-v2.openapi.json
+          printf '%s  %s\n' \
+            14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6 \
+            harness/specs/paypal-orders-v2.openapi.json | sha256sum -c -
+          cat > scripts/paypal-orders-sandbox-server.sh <<'SCRIPT'
+          #!/bin/sh
+          exec python3 -m http.server 4010 --bind 127.0.0.1
+          SCRIPT
+          chmod +x scripts/paypal-orders-sandbox-server.sh
+          cat > .postman-template/onboarding.yml <<'CONFIG'
+          version: 1
+          spec:
+            path: harness/specs/paypal-orders-v2.openapi.json
+          service:
+            name: paypal-orders-v2-public-sandbox
+          tdd:
+            enabled: true
+            workspace:
+              name: Winter Trinity
+            baseUrl: http://127.0.0.1:4010
+            healthUrl: http://127.0.0.1:4010/
+            startCommand: ./scripts/paypal-orders-sandbox-server.sh
+            timeoutSeconds: 30
+            repair:
+              enabled: false
+              provider: openai-responses
+              maxAttempts: 1
+              allowedWritePaths:
+                - sandbox-fixtures/**
+              allowedReadPaths:
+                - harness/specs/**
+                - scripts/**
+          CONFIG
+      - name: First secret-free validation
+        id: first
+        uses: ./
+        with:
+          operation: validate
+          project-name: paypal-orders-v2-public-sandbox
+          onboarding-config-path: .postman-template/onboarding.yml
+          spec-path: harness/specs/paypal-orders-v2.openapi.json
+      - name: Identical secret-free validation rerun
+        id: second
+        uses: ./
+        with:
+          operation: validate
+          project-name: paypal-orders-v2-public-sandbox
+          onboarding-config-path: .postman-template/onboarding.yml
+          spec-path: harness/specs/paypal-orders-v2.openapi.json
+      - name: Prove validation rerun identity
+        env:
+          FIRST_FINGERPRINT: ${{ steps.first.outputs.run-fingerprint }}
+          SECOND_FINGERPRINT: ${{ steps.second.outputs.run-fingerprint }}
+          FIRST_EVIDENCE: ${{ steps.first.outputs.evidence-path }}
+          SECOND_EVIDENCE: ${{ steps.second.outputs.evidence-path }}
+        run: |
+          set -euo pipefail
+          test "$FIRST_FINGERPRINT" = "$SECOND_FINGERPRINT"
+          test "$FIRST_EVIDENCE" = "$SECOND_EVIDENCE"
+          jq -e '.idempotency.mutationPolicy == "read-only" and .result.status == "passed"' "$SECOND_EVIDENCE"
+
+  synthetic-cli-idempotency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - name: Install synthetic Postman CLI contract double
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/fake-bin"
+          cp test/fixtures/fake-postman.sh "$RUNNER_TEMP/fake-bin/postman"
+          chmod +x "$RUNNER_TEMP/fake-bin/postman"
+          printf '%s\n' "$RUNNER_TEMP/fake-bin" >> "$GITHUB_PATH"
+          printf 'FAKE_POSTMAN_LOG=%s\n' "$RUNNER_TEMP/fake-postman.log" >> "$GITHUB_ENV"
+      - name: First synthetic Winter Trinity CLI run
+        id: first
+        uses: ./
+        with:
+          operation: cli-test
+          project-name: paypal-orders-v2-public-sandbox
+          postman-api-key: synthetic-test-key
+          test-workspace-name: Winter Trinity
+          test-workspace-id: 11111111-2222-3333-4444-555555555555
+          cli-smoke-collection-id: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+          cli-report-format: junit
+      - name: Identical synthetic Winter Trinity CLI rerun
+        id: second
+        uses: ./
+        with:
+          operation: cli-test
+          project-name: paypal-orders-v2-public-sandbox
+          postman-api-key: synthetic-test-key
+          test-workspace-name: Winter Trinity
+          test-workspace-id: 11111111-2222-3333-4444-555555555555
+          cli-smoke-collection-id: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+          cli-report-format: junit
+      - name: Prove CLI rerun identity and read-only command surface
+        env:
+          FIRST_FINGERPRINT: ${{ steps.first.outputs.run-fingerprint }}
+          SECOND_FINGERPRINT: ${{ steps.second.outputs.run-fingerprint }}
+          FIRST_EVIDENCE: ${{ steps.first.outputs.evidence-path }}
+          SECOND_EVIDENCE: ${{ steps.second.outputs.evidence-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$FIRST_FINGERPRINT" = "$SECOND_FINGERPRINT"
+          test "$FIRST_EVIDENCE" = "$SECOND_EVIDENCE"
+          jq -e '.idempotency.mutationPolicy == "read-only" and .result.status == "success"' "$SECOND_EVIDENCE"
+          test "$(grep -c '^collection run ' "$FAKE_POSTMAN_LOG")" -eq 2
+          if grep -Eiq '(^| )(workspace|collection|environment|api|spec) (create|update|delete|import|publish)' "$FAKE_POSTMAN_LOG"; then
+            echo 'Synthetic CLI run attempted a mutating Postman command.' >&2
+            exit 1
+          fi

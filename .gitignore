@@ -5,4 +5,5 @@
 .runtime/
 node_modules/
 *.log
-
+.postman-cli-reports/
+.reports/
