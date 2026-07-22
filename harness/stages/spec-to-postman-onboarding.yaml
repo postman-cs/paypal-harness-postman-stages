@@ -1,5 +1,6 @@
 # PAYPAL DROP-IN — GitHub spec -> regular Postman API onboarding.
-# The action is fetched directly from postman-cs at an immutable top-level SHA.
+# Harness resolves Actions through Git tags. The exact v2.1.2 tag resolves to the
+# locked commit in postman-cs.lock.json and is fetched directly from postman-cs.
 # PayPal supplies an existing workspace ID to prevent duplicate workspaces.
 stage:
   name: Postman - Spec to Postman onboarding
@@ -86,7 +87,7 @@ stage:
             name: Run regular Postman-CS onboarding
             identifier: run_regular_postman_cs_onboarding
             spec:
-              uses: postman-cs/postman-api-onboarding-action@d3d3776077fdcfa0b3e319e208dd963d18a0a0d9
+              uses: postman-cs/postman-api-onboarding-action@v2.1.2
               with:
                 project-name: <+stage.variables.project_name>
                 spec-url: <+stage.variables.spec_url>
@@ -114,5 +115,5 @@ stage:
               command: |-
                 set -eu
                 echo 'POSTMAN_HARNESS event=stage_complete stage=spec-to-postman-onboarding writePolicy=approved-postman-upsert+git-none'
-                echo 'POSTMAN_HARNESS dependency=postman-cs/postman-api-onboarding-action ref=d3d3776077fdcfa0b3e319e208dd963d18a0a0d9'
+                echo 'POSTMAN_HARNESS dependency=postman-cs/postman-api-onboarding-action ref=v2.1.2 commit=d3d3776077fdcfa0b3e319e208dd963d18a0a0d9'
                 echo 'POSTMAN_HARNESS idempotency=existing-workspace+refresh-collections+update-spec'

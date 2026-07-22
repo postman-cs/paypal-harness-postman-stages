@@ -53,15 +53,17 @@ corresponding JSON values, so a reviewed fixed-ID rollout remains possible.
 
 ## Supply-chain contract
 
-All lifecycle actions use `postman-cs/<repo>@<40-character SHA>` directly. No
-PayPal stage references the personal wrapper repository. The allowed commits
-are recorded in `postman-cs.lock.json`; validation fails on mutable, unlocked,
-or mismatched top-level references.
+All lifecycle actions call `postman-cs/<repo>` directly. GitHub Actions use
+full commit SHAs; the Harness onboarding stage uses exact release tag `v2.1.2`
+because Harness resolves Actions by Git tag. Its resolved commit is recorded in
+`postman-cs.lock.json`; validation fails on floating, unlocked, or mismatched
+top-level references. No PayPal stage references the personal wrapper.
 
 The regular onboarding composite at the reviewed commit currently contains
 version-tagged transitive `postman-cs` references. The top-level handoff is
-immutable, but full transitive immutability remains a production-readiness item
-for the Postman-CS maintainers; the docs and build evidence do not conceal it.
+lock-mapped, but Git tags can be moved and full transitive immutability remains
+a production-readiness item for the Postman-CS maintainers; the docs and build
+evidence do not conceal it.
 
 ## Human gates and idempotency
 

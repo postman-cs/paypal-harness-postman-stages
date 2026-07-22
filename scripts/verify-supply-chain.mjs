@@ -23,13 +23,15 @@ export function verifySupplyChain(source, manifest, options = {}) {
     errors.push(`${sourceLabel} must directly invoke at least one postman-cs repository.`);
   }
   for (const reference of references) {
-    if (!/^[a-f0-9]{40}$/.test(reference.ref)) {
-      errors.push(`${reference.repository} is not pinned to a full commit SHA.`);
-      continue;
-    }
     const locked = manifest.dependencies?.[reference.repository];
     if (!locked) errors.push(`${reference.repository} is missing from postman-cs.lock.json.`);
-    else if (locked.commit !== reference.ref) errors.push(`${reference.repository} does not match its locked commit.`);
+    else if (/^[a-f0-9]{40}$/.test(reference.ref)) {
+      if (locked.commit !== reference.ref) errors.push(`${reference.repository} does not match its locked commit.`);
+    } else if (!locked.harnessRef || locked.harnessRef !== reference.ref) {
+      errors.push(`${reference.repository} is not pinned to its exact Harness-compatible release tag.`);
+    } else if (!/^v\d+\.\d+\.\d+$/.test(reference.ref) || !/^[a-f0-9]{40}$/.test(locked.commit)) {
+      errors.push(`${reference.repository} Harness tag must be exact and paired with a full locked commit SHA.`);
+    }
   }
   if (requireAllLocks) {
     for (const repository of Object.keys(manifest.dependencies ?? {})) {
@@ -54,6 +56,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     for (const error of result.errors) console.error(`ERROR: ${error}`);
     process.exitCode = 1;
   } else {
-    console.log(`Verified ${result.references.length} direct Postman-CS action reference(s) at immutable commits.`);
+    console.log(`Verified ${result.references.length} direct Postman-CS action reference(s) at locked commits or exact Harness-compatible release tags.`);
   }
 }

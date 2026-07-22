@@ -32,7 +32,7 @@ function checkSecretsAndMutableRefs(relative, source) {
   const checks = [
     [/PMAK-[A-Za-z0-9_-]+/, 'contains a literal Postman API key'],
     [/pat\.[A-Za-z0-9._-]+/, 'contains a literal Harness token'],
-    [/@(?:main|master|v\d+(?:\.\d+)*)\b/, 'contains a mutable action reference'],
+    [/@(?:main|master)\b|@v\d+(?:\.\d+)?(?=\s|$)/, 'contains a mutable action reference'],
   ];
   for (const [pattern, message] of checks) {
     if (pattern.test(source)) {

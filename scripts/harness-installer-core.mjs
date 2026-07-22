@@ -9,6 +9,10 @@ export const PRODUCTION_SOURCE = Object.freeze({
   branch: 'main',
 });
 
+export const HARNESS_COMPATIBLE_ACTION_REFS = Object.freeze({
+  'postman-cs/postman-api-onboarding-action': 'v2.1.2',
+});
+
 export const DELIVERY_STAGES = Object.freeze([
   {
     name: 'Postman - Spec to Postman onboarding',
@@ -54,17 +58,31 @@ export function assertProductionSource(source = PRODUCTION_SOURCE) {
   }
 }
 
+export function harnessPipelineUpdate(yaml) {
+  if (typeof yaml !== 'string' || !/^pipeline:/m.test(yaml)) {
+    throw new Error('Harness pipeline update requires raw pipeline YAML.');
+  }
+  return {
+    method: 'PUT',
+    headers: { 'content-type': 'application/yaml' },
+    body: yaml,
+  };
+}
+
 export function assertImmutablePostmanCsActions(stageSources) {
   let count = 0;
   for (const source of stageSources) {
     const uses = [...source.matchAll(/^\s*uses:\s*([^\s#]+)\s*$/gm)].map((match) => match[1]);
     for (const reference of uses) {
       count += 1;
-      if (!/^postman-cs\/[A-Za-z0-9._-]+@[a-f0-9]{40}$/.test(reference)) {
-        throw new Error(`Production Action reference must be postman-cs/<repo>@<40-char SHA>; received ${reference}.`);
+      const match = reference.match(/^(postman-cs\/[A-Za-z0-9._-]+)@(.+)$/);
+      const isCommit = match && /^[a-f0-9]{40}$/.test(match[2]);
+      const isExactHarnessTag = match && HARNESS_COMPATIBLE_ACTION_REFS[match[1]] === match[2];
+      if (!isCommit && !isExactHarnessTag) {
+        throw new Error(`Production Action reference must be a direct postman-cs commit or approved exact Harness release tag; received ${reference}.`);
       }
     }
-    if (/danielshively-source|@(?:main|master|v\d+(?:\.\d+)*)\b/.test(source)) {
+    if (/danielshively-source/.test(source)) {
       throw new Error('Production stages cannot contain a personal wrapper or mutable action reference.');
     }
   }

@@ -22,7 +22,18 @@ test('rejects mutable references', () => {
     'uses: postman-cs/example@main',
     { dependencies: { 'postman-cs/example': { commit: '0'.repeat(40) } } },
   );
-  assert.match(result.errors.join('\n'), /not pinned to a full commit SHA/);
+  assert.match(result.errors.join('\n'), /not pinned to its exact Harness-compatible release tag/);
+});
+
+test('accepts an exact Harness release tag paired with its locked commit', () => {
+  const result = verifySupplyChain(
+    'uses: postman-cs/example@v2.1.2',
+    { dependencies: { 'postman-cs/example': {
+      harnessRef: 'v2.1.2',
+      commit: '0'.repeat(40),
+    } } },
+  );
+  assert.deepEqual(result.errors, []);
 });
 
 test('rejects lock drift', () => {

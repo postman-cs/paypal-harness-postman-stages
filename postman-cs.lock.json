@@ -9,6 +9,7 @@
     "postman-cs/postman-api-onboarding-action": {
       "repository": "https://github.com/postman-cs/postman-api-onboarding-action",
       "commit": "d3d3776077fdcfa0b3e319e208dd963d18a0a0d9",
+      "harnessRef": "v2.1.2",
       "purpose": "Create or reuse Postman assets, synchronize repository metadata, and optionally onboard Insights."
     },
     "postman-cs/postman-onboarding-tdd": {

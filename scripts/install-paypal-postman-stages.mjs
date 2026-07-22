@@ -9,6 +9,7 @@ import {
   assertImmutablePostmanCsActions,
   assertProductionSource,
   assertRemoteTemplateMetadata,
+  harnessPipelineUpdate,
   installLinkedStages,
   pipelineDigest,
   validateGeneratedTemplateCatalog,
@@ -100,11 +101,11 @@ async function readPipeline(options) {
 
 async function writePipeline(options, yaml) {
   const search = query(options);
-  await request(options, `/pipeline/api/pipelines/${encodeURIComponent(options.pipeline)}?${search}`, {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ yamlPipeline: yaml }),
-  });
+  await request(
+    options,
+    `/pipeline/api/pipelines/${encodeURIComponent(options.pipeline)}?${search}`,
+    harnessPipelineUpdate(yaml),
+  );
 }
 
 async function verifyRemoteSources(options) {

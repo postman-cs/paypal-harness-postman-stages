@@ -41,10 +41,11 @@ not use the TDD preview action.
 
 ## Direct Postman-CS dependency policy
 
-Every customer lifecycle stage uses `postman-cs/<repository>@<full commit SHA>`
-directly. No stage depends on the private personal wrapper. The approved commits
-are recorded in `postman-cs.lock.json`, and validation rejects mutable or
-unlocked top-level references.
+Every customer lifecycle stage calls `postman-cs/<repository>` directly. GitHub
+Actions use full commit SHAs. Harness Actions require Git tags, so onboarding
+uses the exact semantic release `v2.1.2`, whose resolved commit is recorded in
+`postman-cs.lock.json`. Validation rejects floating tags, mutable branches, and
+unlocked references. No stage depends on the private personal wrapper.
 
 The guarded installer also verifies that PayPal's Harness Git connector points
 to `postman-cs/paypal-harness-postman-stages`, that both linked remote templates
@@ -52,9 +53,10 @@ resolve from their approved paths on `main`, and that the linked version is
 `v0.1.0`. It refuses forks and inline production copies.
 
 The reviewed regular onboarding composite itself currently includes
-version-tagged transitive Postman-CS references. Its top-level revision is
-immutable; complete transitive immutability remains a production-readiness
-item to remediate or explicitly accept.
+version-tagged transitive Postman-CS references. The Harness-compatible
+top-level release tag is exact and lock-mapped, but Git tags can be moved;
+complete transitive immutability remains a production-readiness item to
+remediate or explicitly accept.
 
 ## Required Harness inputs
 

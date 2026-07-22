@@ -9,7 +9,7 @@ or environment values.
 
 ```text
 POSTMAN_HARNESS event=stage_complete stage=spec-to-postman-onboarding writePolicy=approved-postman-upsert+git-none
-POSTMAN_HARNESS dependency=postman-cs/postman-api-onboarding-action ref=d3d3776077fdcfa0b3e319e208dd963d18a0a0d9
+POSTMAN_HARNESS dependency=postman-cs/postman-api-onboarding-action ref=v2.1.2 commit=d3d3776077fdcfa0b3e319e208dd963d18a0a0d9
 POSTMAN_HARNESS event=stage_complete stage=postman-cli-quality-gate writePolicy=none
 POSTMAN_HARNESS executor=postman-cli sourceStage=postman-cs/postman-api-onboarding-action
 POSTMAN_HARNESS event=stage_complete stage=postman-to-git-sync writePolicy=commit-only

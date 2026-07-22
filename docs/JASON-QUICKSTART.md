@@ -12,14 +12,14 @@ There are two intentionally direct `postman-cs` connections:
 1. Harness loads the linked stage templates from
    `postman-cs/paypal-harness-postman-stages` on `main`.
 2. At execution time, onboarding invokes
-   `postman-cs/postman-api-onboarding-action` at the full commit SHA recorded in
-   `postman-cs.lock.json`. Future lifecycle stages do the same for repo sync and
-   Insights onboarding.
+   `postman-cs/postman-api-onboarding-action@v2.1.2`. Harness requires a Git
+   tag for an Action; `postman-cs.lock.json` records the exact commit resolved
+   by that tag. Future lifecycle stages call Postman-CS directly as well.
 
 The installer fails closed if its connector URL, template Git metadata,
-repository owner, file path, version, or Action SHA does not match that
-contract. A personal fork, copied inline stage, wrapper action, mutable tag, or
-different repository is not accepted for production.
+repository owner, file path, template version, or locked Action ref does not
+match that contract. A personal fork, copied inline stage, wrapper action,
+floating tag, or different repository is not accepted for production.
 
 ## One-time PayPal Harness setup
 
@@ -114,7 +114,7 @@ both upstream commit and SHA-256.
 ## Evidence to retain
 
 - Harness execution URL and sequence ID.
-- The `POSTMAN_HARNESS dependency=postman-cs/... ref=<SHA>` log records.
+- The `POSTMAN_HARNESS dependency=postman-cs/... ref=<tag> commit=<SHA>` log records.
 - Spec source commit and SHA-256 verification.
 - Postman CLI version, lint JSON, and JUnit results.
 - First- and second-run Postman asset IDs for the idempotency comparison.

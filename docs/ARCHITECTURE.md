@@ -55,15 +55,17 @@ asset upsert, repo materialization, and Insights linkage.
 
 ## Supply-chain boundary
 
-Every customer lifecycle stage points to `postman-cs/...@<40-character SHA>`
-directly. `postman-cs.lock.json` records those commits, and `pnpm run validate`
-rejects mutable, missing, or mismatched top-level references.
+Every customer lifecycle stage calls `postman-cs/...` directly. GitHub Actions
+use full commit SHAs. The Harness onboarding Action uses exact release tag
+`v2.1.2`, mapped to its resolved commit in `postman-cs.lock.json`, because the
+Harness adapter clones `refs/tags/<ref>`. `pnpm run validate` rejects floating,
+missing, or mismatched top-level references.
 
 The reviewed regular onboarding composite contains release-tagged transitive
-Postman-CS actions. Its top-level source is immutable, but its full dependency
-graph does not yet meet a SHA-only policy. PayPal must either accept that risk,
-use a reviewed internal mirror, or wait for Postman-CS to publish a fully pinned
-composite before production.
+Postman-CS actions. Its exact top-level release tag is lock-mapped, but a Git tag
+can be moved and its full dependency graph does not yet meet a SHA-only policy.
+PayPal must either accept that risk, use a reviewed internal mirror, or wait for
+Postman-CS to publish a fully pinned composite before production.
 
 ## Secrets
 

@@ -11,10 +11,21 @@ import {
   assertImmutablePostmanCsActions,
   assertProductionSource,
   assertRemoteTemplateMetadata,
+  harnessPipelineUpdate,
   installLinkedStages,
 } from '../scripts/harness-installer-core.mjs';
 
 const root = resolve(import.meta.dirname, '..');
+
+test('pipeline updates use Harness raw YAML contract', () => {
+  const yaml = 'pipeline:\n  identifier: paypal\n';
+  assert.deepEqual(harnessPipelineUpdate(yaml), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/yaml' },
+    body: yaml,
+  });
+  assert.throws(() => harnessPipelineUpdate('{"yamlPipeline":"..."}'), /raw pipeline YAML/);
+});
 
 function fixture(stages = [{ stage: { name: 'Promote', identifier: 'promote', type: 'Custom', spec: {} } }]) {
   return `pipeline:\n  name: Existing PayPal pipeline\n  identifier: paypal_existing\n  stages:\n${stages.map((item) => `    - ${JSON.stringify(item)}`).join('\n')}\n`;
@@ -55,13 +66,17 @@ test('production source rejects forks, wrappers, mutable branches, and personal 
   }
 });
 
-test('runtime actions must call postman-cs directly at full immutable SHAs', () => {
+test('runtime actions must call postman-cs directly at a commit or approved exact Harness tag', () => {
   const onboarding = readFileSync(resolve(root, 'harness/stages/spec-to-postman-onboarding.yaml'), 'utf8');
   const cli = readFileSync(resolve(root, 'harness/stages/postman-cli-quality-gate.yaml'), 'utf8');
   assert.equal(assertImmutablePostmanCsActions([onboarding, cli]), 1);
   assert.throws(
     () => assertImmutablePostmanCsActions(['uses: postman-cs/postman-api-onboarding-action@main']),
-    /40-char SHA/,
+    /approved exact Harness release tag/,
+  );
+  assert.throws(
+    () => assertImmutablePostmanCsActions(['uses: postman-cs/postman-api-onboarding-action@v2']),
+    /approved exact Harness release tag/,
   );
   assert.throws(
     () => assertImmutablePostmanCsActions(['uses: somebody/paypal-wrapper@0123456789012345678901234567890123456789']),
