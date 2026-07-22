@@ -7,7 +7,7 @@ approval policy.
 
 | Customer ask | Drop-in stage | Direct Postman-CS dependency | Effect |
 | --- | --- | --- | --- |
-| Sync a checked-in OAS contract into Postman | `spec-to-postman-onboarding.yaml` | `postman-api-onboarding-action` | Human-approved stable-ID upsert in an existing workspace; no Git write |
+| Sync a checked-in OAS contract into Postman | `spec-to-postman-onboarding.yaml` | `postman-bootstrap-action` (regular onboarding core) | Human-approved stable-ID upsert in an existing workspace; no Git write |
 | Make Postman tests a Harness quality gate | `postman-cli-quality-gate.yaml` | Postman CLI, against assets created by regular onboarding | Exact Winter Trinity identity check, spec lint, collection run, JUnit; read-only |
 | Bring governed Postman assets back to the repo | `postman-to-git-sync.yaml` | `postman-repo-sync-action` | Local commit only; never pushes |
 | Discover implemented runtime routes for later rogue-endpoint comparison | `runtime-route-discovery.yaml` | `postman-insights-onboarding-action` | Human-approved link to an already discovered service |
@@ -20,8 +20,9 @@ Tonight's first GitHub → Harness → Postman proof is:
 2. `postman-cli-quality-gate.yaml`
 
 The onboarding stage downloads and digest-verifies PayPal's public Orders v2
-contract, calls the regular `postman-cs/postman-api-onboarding-action` at a full
-commit SHA, reuses the supplied Winter Trinity workspace, updates the spec and
+contract, calls the regular onboarding core in
+`postman-cs/postman-bootstrap-action` at an exact lock-mapped tag, reuses the
+supplied Winter Trinity workspace, updates the spec and
 generated collections, disables Insights, skips built-in tests, and makes no Git
 write. The next independent stage uses the pre-provisioned Postman CLI to prove
 the exact Winter Trinity workspace, lint the same Orders contract, execute only
@@ -54,16 +55,17 @@ corresponding JSON values, so a reviewed fixed-ID rollout remains possible.
 ## Supply-chain contract
 
 All lifecycle actions call `postman-cs/<repo>` directly. GitHub Actions use
-full commit SHAs; the Harness onboarding stage uses exact release tag `v2.1.2`
-because Harness resolves Actions by Git tag. Its resolved commit is recorded in
+full commit SHAs; the Harness onboarding stage uses the regular onboarding
+bootstrap core at exact release tag `v2.10.5` because Harness resolves Actions
+by Git tag and cannot reliably preload the parent composite's nested actions.
+Its resolved commit is recorded in
 `postman-cs.lock.json`; validation fails on floating, unlocked, or mismatched
 top-level references. No PayPal stage references the personal wrapper.
 
-The regular onboarding composite at the reviewed commit currently contains
-version-tagged transitive `postman-cs` references. The top-level handoff is
-lock-mapped, but Git tags can be moved and full transitive immutability remains
-a production-readiness item for the Postman-CS maintainers; the docs and build
-evidence do not conceal it.
+The broader regular onboarding composite contains version-tagged transitive
+`postman-cs` references. This Harness path invokes the Node-based bootstrap core
+directly, removing that nested-composite dependency. Its exact tag is
+lock-mapped, though Git tags can still be moved.
 
 ## Human gates and idempotency
 

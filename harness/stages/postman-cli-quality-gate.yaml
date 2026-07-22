@@ -123,7 +123,7 @@ stage:
                     --reporter-junit-export .postman-cli-reports/contract.xml || FAILED=1
                 fi
                 echo 'POSTMAN_HARNESS event=stage_complete stage=postman-cli-quality-gate writePolicy=none'
-                echo 'POSTMAN_HARNESS executor=postman-cli sourceStage=postman-cs/postman-api-onboarding-action'
+                echo 'POSTMAN_HARNESS executor=postman-cli sourceStage=postman-cs/postman-bootstrap-action'
                 exit "$FAILED"
               reports:
                 type: JUnit

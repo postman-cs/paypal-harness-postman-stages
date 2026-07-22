@@ -12,9 +12,11 @@ There are two intentionally direct `postman-cs` connections:
 1. Harness loads the linked stage templates from
    `postman-cs/paypal-harness-postman-stages` on `main`.
 2. At execution time, onboarding invokes
-   `postman-cs/postman-api-onboarding-action@v2.1.2`. Harness requires a Git
-   tag for an Action; `postman-cs.lock.json` records the exact commit resolved
-   by that tag. Future lifecycle stages call Postman-CS directly as well.
+   `postman-cs/postman-bootstrap-action@v2.10.5`, the Node-based core used by
+   regular onboarding. Harness requires a Git tag for an Action;
+   `postman-cs.lock.json` records the exact commit resolved by that tag. This
+   avoids Harness's nested-composite loader while still calling Postman-CS
+   directly. Future lifecycle stages call Postman-CS directly as well.
 
 The installer fails closed if its connector URL, template Git metadata,
 repository owner, file path, template version, or locked Action ref does not

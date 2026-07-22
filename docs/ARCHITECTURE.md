@@ -20,7 +20,7 @@ or hidden deployment path.
 
 | Stage | Execution surface | Maximum authority |
 | --- | --- | --- |
-| `spec-to-postman-onboarding` | Regular `postman-api-onboarding-action` | Approved upsert in a supplied existing Postman workspace; no Git write |
+| `spec-to-postman-onboarding` | Regular onboarding's `postman-bootstrap-action` core | Approved upsert in a supplied existing Postman workspace; no Git write |
 | `postman-cli-quality-gate` | Postman CLI | Read-only exact-workspace lint and collection execution; JUnit |
 | `postman-to-git-sync` | `postman-repo-sync-action` | Local commit only; no push |
 | `runtime-route-discovery` | `postman-insights-onboarding-action` | Approved linkage of an already discovered runtime service |
@@ -56,16 +56,18 @@ asset upsert, repo materialization, and Insights linkage.
 ## Supply-chain boundary
 
 Every customer lifecycle stage calls `postman-cs/...` directly. GitHub Actions
-use full commit SHAs. The Harness onboarding Action uses exact release tag
-`v2.1.2`, mapped to its resolved commit in `postman-cs.lock.json`, because the
-Harness adapter clones `refs/tags/<ref>`. `pnpm run validate` rejects floating,
-missing, or mismatched top-level references.
+use full commit SHAs. The Harness onboarding Action uses the regular onboarding
+bootstrap core at exact release tag `v2.10.5`, mapped to its resolved commit in
+`postman-cs.lock.json`, because the Harness adapter clones
+`refs/tags/<ref>`. Calling the Node-based core directly also avoids Harness's
+nested-composite preload failure. `pnpm run validate` rejects floating, missing,
+or mismatched top-level references.
 
-The reviewed regular onboarding composite contains release-tagged transitive
-Postman-CS actions. Its exact top-level release tag is lock-mapped, but a Git tag
-can be moved and its full dependency graph does not yet meet a SHA-only policy.
-PayPal must either accept that risk, use a reviewed internal mirror, or wait for
-Postman-CS to publish a fully pinned composite before production.
+The broader regular onboarding composite contains release-tagged transitive
+Postman-CS actions. The Harness stage does not load that composite; it directly
+executes the bootstrap core. Its exact release tag is lock-mapped, but a Git tag
+can still be moved. PayPal can accept that bounded risk or use a reviewed
+internal mirror.
 
 ## Secrets
 

@@ -18,10 +18,9 @@ test('one semantic drop-in stage exists for each PayPal pipeline ask', () => {
 });
 
 test('regular onboarding is the primary Postman lifecycle path', () => {
-  assert.match(onboarding, /uses: postman-cs\/postman-api-onboarding-action@v2\.1\.2/);
+  assert.match(onboarding, /uses: postman-cs\/postman-bootstrap-action@v2\.10\.5/);
   assert.doesNotMatch(onboarding, /postman-onboarding-tdd/);
-  assert.match(onboarding, /repo-write-mode: none/);
-  assert.match(onboarding, /skip-built-in-tests: "true"/);
+  assert.doesNotMatch(onboarding, /repo-write-mode:|generate-ci-workflow:|enable-insights:|skip-built-in-tests:/);
   assert.match(onboarding, /approve_postman_write/);
   assert.match(onboarding, /workspace-id: <\+stage\.variables\.workspace_id>/);
 });

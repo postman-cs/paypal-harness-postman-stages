@@ -22,7 +22,7 @@ const remoteTemplates = [
   '.harness/templates/paypal-postman-cli-quality-gate-v0.1.0.yaml',
 ];
 const expectedStageActions = new Map([
-  ['harness/stages/spec-to-postman-onboarding.yaml', 'postman-cs/postman-api-onboarding-action'],
+  ['harness/stages/spec-to-postman-onboarding.yaml', 'postman-cs/postman-bootstrap-action'],
   ['harness/stages/postman-to-git-sync.yaml', 'postman-cs/postman-repo-sync-action'],
   ['harness/stages/runtime-route-discovery.yaml', 'postman-cs/postman-insights-onboarding-action'],
 ]);
@@ -98,8 +98,8 @@ for (const relative of remoteTemplates) {
 }
 
 const onboarding = readFileSync(resolve(root, stageTemplates[0]), 'utf8');
-if (!/repo-write-mode: none/.test(onboarding) || !/skip-built-in-tests: "true"/.test(onboarding)) {
-  console.error('ERROR: onboarding must leave Git untouched and delegate tests to the CLI stage.');
+if (/repo-write-mode:|generate-ci-workflow:|enable-insights:|skip-built-in-tests:/.test(onboarding)) {
+  console.error('ERROR: Harness onboarding must call only the bootstrap core; wrapper-only Git, Insights, and test inputs are forbidden.');
   failed = true;
 }
 const cli = readFileSync(resolve(root, stageTemplates[1]), 'utf8');

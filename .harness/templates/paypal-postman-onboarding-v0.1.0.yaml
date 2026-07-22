@@ -87,10 +87,10 @@ template:
                   }
           - step:
               type: Action
-              name: Run regular Postman-CS onboarding
+              name: Run regular Postman-CS onboarding core
               identifier: run_regular_postman_cs_onboarding
               spec:
-                uses: postman-cs/postman-api-onboarding-action@v2.1.2
+                uses: postman-cs/postman-bootstrap-action@v2.10.5
                 with:
                   project-name: <+stage.variables.project_name>
                   spec-url: <+stage.variables.spec_url>
@@ -101,11 +101,7 @@ template:
                   contract-collection-id: <+stage.variables.contract_collection_id>
                   collection-sync-mode: refresh
                   spec-sync-mode: update
-                  generate-ci-workflow: "false"
-                  repo-write-mode: none
                   credential-preflight: enforce
-                  enable-insights: "false"
-                  skip-built-in-tests: "true"
                   postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
                   postman-region: us
           - step:
@@ -117,5 +113,5 @@ template:
                 command: |-
                   set -eu
                   echo 'POSTMAN_HARNESS event=stage_complete stage=spec-to-postman-onboarding writePolicy=approved-postman-upsert+git-none'
-                  echo 'POSTMAN_HARNESS dependency=postman-cs/postman-api-onboarding-action ref=v2.1.2 commit=d3d3776077fdcfa0b3e319e208dd963d18a0a0d9'
+                  echo 'POSTMAN_HARNESS dependency=postman-cs/postman-bootstrap-action ref=v2.10.5 commit=848edbabcbfd311168e05b2976b907736f020ba5'
                   echo 'POSTMAN_HARNESS idempotency=existing-workspace+refresh-collections+update-spec'

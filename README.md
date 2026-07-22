@@ -22,15 +22,16 @@ personal wrapper. Start with the [Jason handoff](docs/JASON-QUICKSTART.md).
 The first pipeline for Jason tonight is **spec-to-Postman onboarding followed
 by the Postman CLI quality gate**. It uses the immutable public PayPal Orders v2
 contract, a supplied existing Winter Trinity workspace ID, the regular
-`postman-cs/postman-api-onboarding-action`, and approved collection IDs. It does
-not use the TDD preview action.
+`postman-cs/postman-bootstrap-action` (the regular onboarding core), and
+approved collection IDs. It does not use the TDD preview action.
 
 ## Product stance
 
 - PayPal's Harness pipeline remains authoritative for triggers, checkout,
   approvals, promotion, and deployment.
-- The regular Postman API onboarding action owns workspace/spec/collection
-  lifecycle.
+- The Node-based bootstrap core of the regular Postman API onboarding action
+  owns workspace/spec/collection lifecycle. Calling it directly avoids
+  Harness's unsupported nested-composite preload path.
 - Postman CLI owns lint and collection execution. The runner must provision a
   reviewed CLI binary; runtime `curl | sh` installation is prohibited.
 - Postman-to-Git sync stops at `commit-only`; a PayPal human decides whether to
@@ -43,7 +44,7 @@ not use the TDD preview action.
 
 Every customer lifecycle stage calls `postman-cs/<repository>` directly. GitHub
 Actions use full commit SHAs. Harness Actions require Git tags, so onboarding
-uses the exact semantic release `v2.1.2`, whose resolved commit is recorded in
+uses the exact semantic release `v2.10.5`, whose resolved commit is recorded in
 `postman-cs.lock.json`. Validation rejects floating tags, mutable branches, and
 unlocked references. No stage depends on the private personal wrapper.
 
@@ -52,11 +53,10 @@ to `postman-cs/paypal-harness-postman-stages`, that both linked remote templates
 resolve from their approved paths on `main`, and that the linked version is
 `v0.1.0`. It refuses forks and inline production copies.
 
-The reviewed regular onboarding composite itself currently includes
-version-tagged transitive Postman-CS references. The Harness-compatible
-top-level release tag is exact and lock-mapped, but Git tags can be moved;
-complete transitive immutability remains a production-readiness item to
-remediate or explicitly accept.
+The broader regular onboarding composite currently includes version-tagged
+transitive Postman-CS references, but this Harness stage bypasses that composite
+and calls its Node-based bootstrap core directly. The Harness-compatible
+top-level release tag is exact and lock-mapped, though Git tags can be moved.
 
 ## Required Harness inputs
 

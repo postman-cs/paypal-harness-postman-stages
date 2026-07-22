@@ -78,6 +78,9 @@ test('runtime actions must call postman-cs directly at a commit or approved exac
     () => assertImmutablePostmanCsActions(['uses: postman-cs/postman-api-onboarding-action@v2']),
     /approved exact Harness release tag/,
   );
+  assert.doesNotThrow(
+    () => assertImmutablePostmanCsActions(['uses: postman-cs/postman-bootstrap-action@v2.10.5']),
+  );
   assert.throws(
     () => assertImmutablePostmanCsActions(['uses: somebody/paypal-wrapper@0123456789012345678901234567890123456789']),
     /postman-cs/,

@@ -12,6 +12,12 @@
       "harnessRef": "v2.1.2",
       "purpose": "Create or reuse Postman assets, synchronize repository metadata, and optionally onboard Insights."
     },
+    "postman-cs/postman-bootstrap-action": {
+      "repository": "https://github.com/postman-cs/postman-bootstrap-action",
+      "commit": "848edbabcbfd311168e05b2976b907736f020ba5",
+      "harnessRef": "v2.10.5",
+      "purpose": "Run the regular onboarding core directly in Harness without the unsupported nested composite loader."
+    },
     "postman-cs/postman-onboarding-tdd": {
       "repository": "https://github.com/postman-cs/postman-onboarding-tdd",
       "commit": "0647a2ab357ba10c34ededf553ec0e64f0a67e0f",

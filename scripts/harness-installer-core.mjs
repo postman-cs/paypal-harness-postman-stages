@@ -11,6 +11,7 @@ export const PRODUCTION_SOURCE = Object.freeze({
 
 export const HARNESS_COMPATIBLE_ACTION_REFS = Object.freeze({
   'postman-cs/postman-api-onboarding-action': 'v2.1.2',
+  'postman-cs/postman-bootstrap-action': 'v2.10.5',
 });
 
 export const DELIVERY_STAGES = Object.freeze([
