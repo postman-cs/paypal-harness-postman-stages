@@ -12,6 +12,7 @@ export const PRODUCTION_SOURCE = Object.freeze({
 export const HARNESS_COMPATIBLE_ACTION_REFS = Object.freeze({
   'postman-cs/postman-api-onboarding-action': 'v2.1.2',
   'postman-cs/postman-bootstrap-action': 'v2.10.5',
+  'postman-cs/postman-resolve-service-token-action': 'v2.0.4',
 });
 
 export const DELIVERY_STAGES = Object.freeze([
@@ -19,11 +20,19 @@ export const DELIVERY_STAGES = Object.freeze([
     name: 'Postman - Spec to Postman onboarding',
     identifier: 'postman_spec_to_postman_onboarding',
     templateIdentifier: 'paypal_postman_onboarding',
-    templatePath: '.harness/templates/paypal-postman-onboarding-v0.1.0.yaml',
+    templatePath: '.harness/templates/paypal-postman-onboarding-v0.2.0.yaml',
     inputs: [
       ['project_name', 'String', '<+input>.default(paypal-orders)'],
       ['spec_url', 'String', '<+input>.default(https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json)'],
+      ['spec_sha256', 'String', '<+input>.default(14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6)'],
+      ['workspace_mode', 'String', '<+input>.default(existing).allowedValues(existing,create)'],
       ['workspace_id', 'String', '<+input>'],
+      ['target_workspace_name', 'String', '<+input>.default(Winter Trinity)'],
+      ['workspace_team_id', 'String', '<+input>'],
+      ['service_repo_url', 'String', '<+input>'],
+      ['governance_group', 'String', '<+input>'],
+      ['requester_email', 'String', '<+input>'],
+      ['workspace_admin_user_ids', 'String', '<+input>'],
       ['spec_id', 'String', '<+input>'],
       ['baseline_collection_id', 'String', '<+input>'],
       ['smoke_collection_id', 'String', '<+input>'],
@@ -35,9 +44,20 @@ export const DELIVERY_STAGES = Object.freeze([
     name: 'Postman - CLI quality gate',
     identifier: 'postman_cli_quality_gate',
     templateIdentifier: 'paypal_postman_cli_quality_gate',
-    templatePath: '.harness/templates/paypal-postman-cli-quality-gate-v0.1.0.yaml',
+    templatePath: '.harness/templates/paypal-postman-cli-quality-gate-v0.2.0.yaml',
     inputs: [
-      ['winter_trinity_workspace_id', 'String', '<+input>'],
+      [
+        'workspace_id',
+        'String',
+        '<+pipeline.stages.postman_spec_to_postman_onboarding.spec.execution.steps.run_regular_postman_cs_onboarding.output.outputVariables.workspace_id>',
+      ],
+      [
+        'workspace_name',
+        'String',
+        '<+pipeline.stages.postman_spec_to_postman_onboarding.spec.execution.steps.run_regular_postman_cs_onboarding.output.outputVariables.workspace_name>',
+      ],
+      ['spec_url', 'String', '<+input>.default(https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json)'],
+      ['spec_sha256', 'String', '<+input>.default(14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6)'],
       ['smoke_collection_id', 'String', '<+input>'],
       ['contract_collection_id', 'String', '<+input>'],
       [

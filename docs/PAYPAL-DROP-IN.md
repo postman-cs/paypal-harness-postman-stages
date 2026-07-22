@@ -31,10 +31,13 @@ collection execution, failure gating, and JUnit.
    deployment stages.
 4. Replace only the stage runtime block if PayPal uses a VM or Kubernetes
    runner instead of Harness Cloud.
-5. Create Harness secret `paypal_postman_api_key` from the approved Postman
-   service account.
-6. Provide the existing Winter Trinity workspace ID. The stage is deliberately
-   not allowed to create an unnamed/unknown workspace.
+5. Create Harness secret `paypal_postman_service_account_pmak` from a PMAK
+   generated for the approved Postman service account. A personal PMAK does not
+   satisfy this contract.
+6. For the proof, use `workspace_mode=existing` and provide the exact Winter
+   Trinity workspace ID. For a new service, use `workspace_mode=create`, leave
+   the ID empty, and provide the owning Postman sub-team ID and canonical
+   PayPal service-repo URL.
 7. For onboarding, set `approve_postman_write=true`, keep
    `repo-write-mode=none`, and use the immutable default Orders URL.
 8. Wire the onboarding action output to the CLI stage's
@@ -62,8 +65,10 @@ This is the public contract Deirdre and Jason selected for the proof.
 
 - Use `postman-to-git-sync.yaml` after asset IDs stabilize. It requires
   `approve_local_commit=true` and cannot push.
-- Use `runtime-route-discovery.yaml` only after the Insights service, cluster,
-  environment, token type, and retention model are confirmed.
+- Keep `runtime-route-discovery.yaml` disabled until the Insights Akita
+  acknowledgement/application-binding path accepts a service-account identity
+  or the Postman-CS action exposes an atomic service-account-only mode. The
+  checked-in guard fails before partial writes.
 
 ## Rollback
 

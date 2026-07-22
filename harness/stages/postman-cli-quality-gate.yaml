@@ -1,16 +1,28 @@
 # PAYPAL DROP-IN — Postman CLI quality gate.
 # Read-only: regular onboarding occurs in its own stage. This stage proves exact
-# Winter Trinity identity, then executes approved collection IDs with the
+# target workspace identity, then executes approved collection IDs with the
 # pre-provisioned Postman CLI and publishes JUnit.
 stage:
   name: Postman - CLI quality gate
   identifier: postman_cli_quality_gate
   type: CI
   variables:
-    - name: winter_trinity_workspace_id
+    - name: workspace_id
       type: String
       required: true
       value: <+input>
+    - name: workspace_name
+      type: String
+      required: true
+      value: <+input>.default(Winter Trinity)
+    - name: spec_url
+      type: String
+      required: true
+      value: <+input>.default(https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json)
+    - name: spec_sha256
+      type: String
+      required: true
+      value: <+input>.default(14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6)
     - name: smoke_collection_id
       type: String
       required: false
@@ -39,18 +51,47 @@ stage:
       steps:
         - step:
             type: Run
+            name: Verify Postman service-account identity
+            identifier: verify_postman_service_account_identity
+            spec:
+              shell: Sh
+              envVariables:
+                POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_service_account_pmak")>
+              command: |-
+                set +x
+                set -eu
+                VERSION=2.0.4
+                EXPECTED_SHA256=1e0b51548b67848a1f168cf543bf9779b2acb0dcd26a392aa99c2efd43f76c09
+                BIN=.postman-stage/bin/postman-resolve-service-token
+                mkdir -p .postman-stage/bin
+                curl --fail --silent --show-error --location \
+                  "https://github.com/postman-cs/postman-resolve-service-token-action/releases/download/v${VERSION}/postman-resolve-service-token-${VERSION}-linux-x64" \
+                  --output "$BIN"
+                printf '%s  %s\n' "$EXPECTED_SHA256" "$BIN" | sha256sum --check --status
+                chmod 0755 "$BIN"
+                RESOLVED="$("$BIN" --postman-region us)"
+                RESULT_JSON="$RESOLVED" node -e 'const r=JSON.parse(process.env.RESULT_JSON); if(!r.token || !r["team-id"]) process.exit(2)'
+                unset RESOLVED RESULT_JSON
+                echo 'POSTMAN_HARNESS identity=verified-service-account-pmak'
+                echo 'POSTMAN_HARNESS dependency=postman-cs/postman-resolve-service-token-action ref=v2.0.4 commit=38f8cd423ebcd65ecfcd99336e771ffe2de98b5b'
+
+        - step:
+            type: Run
             name: Prepare immutable PayPal Orders input
             identifier: prepare_paypal_orders_input
             spec:
               shell: Sh
               command: |-
                 set -eu
+                SPEC_URL='<+stage.variables.spec_url>'
+                SPEC_SHA256='<+stage.variables.spec_sha256>'
+                case "$SPEC_URL" in https://*) ;; *) echo 'spec_url must use HTTPS.' >&2; exit 2 ;; esac
+                printf '%s' "$SPEC_SHA256" | grep -Eq '^[a-fA-F0-9]{64}$' || exit 2
                 mkdir -p .postman-stage/openapi .postman-cli-reports
                 curl --fail --silent --show-error --location \
-                  https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json \
+                  "$SPEC_URL" \
                   --output .postman-stage/openapi/checkout_orders_v2.json
-                printf '%s  %s\n' \
-                  14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6 \
+                printf '%s  %s\n' "$SPEC_SHA256" \
                   .postman-stage/openapi/checkout_orders_v2.json | sha256sum --check --status
         - step:
             type: Run
@@ -65,8 +106,9 @@ stage:
                   exit 2
                 }
                 postman --version
-                POSTMAN_API_KEY='<+secrets.getValue("paypal_postman_api_key")>'
-                WORKSPACE_ID='<+stage.variables.winter_trinity_workspace_id>'
+                POSTMAN_API_KEY='<+secrets.getValue("paypal_postman_service_account_pmak")>'
+                WORKSPACE_ID='<+stage.variables.workspace_id>'
+                WORKSPACE_NAME='<+stage.variables.workspace_name>'
                 SMOKE_ID='<+stage.variables.smoke_collection_id>'
                 CONTRACT_ID='<+stage.variables.contract_collection_id>'
                 COLLECTIONS_JSON='<+stage.variables.onboarding_collections_json>'
@@ -79,15 +121,15 @@ stage:
                   [ -n "$CONTRACT_ID" ] || CONTRACT_ID="$(node -e "const x=JSON.parse(require('node:fs').readFileSync(process.argv[1],'utf8')); process.stdout.write(String(x.contract||''))" .postman-cli-reports/onboarding-collections.json)"
                 fi
                 [ -n "$SMOKE_ID$CONTRACT_ID" ] || {
-                  echo 'Provide at least one approved Winter Trinity collection ID.' >&2
+                  echo 'Provide at least one approved target-workspace collection ID.' >&2
                   exit 2
                 }
                 trap 'postman logout >/dev/null 2>&1 || true' EXIT
                 postman login --with-api-key "$POSTMAN_API_KEY" >/dev/null
-                postman search workspaces 'Winter Trinity' \
+                postman search workspaces "$WORKSPACE_NAME" \
                   --ownership organization --limit 25 --output json \
                   > .postman-cli-reports/workspaces.json
-                EXPECTED_WORKSPACE_ID="$WORKSPACE_ID" node <<'NODE'
+                EXPECTED_WORKSPACE_ID="$WORKSPACE_ID" EXPECTED_WORKSPACE_NAME="$WORKSPACE_NAME" node <<'NODE'
                 const fs = require('node:fs');
                 const root = JSON.parse(fs.readFileSync('.postman-cli-reports/workspaces.json', 'utf8'));
                 const seen = new Set();
@@ -96,12 +138,12 @@ stage:
                   if (Array.isArray(value)) return value.forEach(walk);
                   const name = value.name;
                   const id = value.id || value.workspaceId || value.uid;
-                  if (name === 'Winter Trinity' && id) seen.add(String(id));
+                  if (name === process.env.EXPECTED_WORKSPACE_NAME && id) seen.add(String(id));
                   Object.values(value).forEach(walk);
                 }
                 walk(root);
                 if (!seen.has(process.env.EXPECTED_WORKSPACE_ID)) {
-                  throw new Error('The supplied ID is not an exact organization-owned Winter Trinity match.');
+                  throw new Error('The supplied ID is not an exact organization-owned workspace name/ID match.');
                 }
                 NODE
                 postman spec lint .postman-stage/openapi/checkout_orders_v2.json \

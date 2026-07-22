@@ -12,6 +12,7 @@
     "test": "node --test",
     "harness:templates": "node scripts/build-remote-templates.mjs",
     "harness:install": "node scripts/install-paypal-postman-stages.mjs",
+    "postman:service-account:preflight:mac": "node scripts/postman-service-account-preflight.mjs",
     "validate": "node scripts/build-remote-templates.mjs && node scripts/verify-supply-chain.mjs && node scripts/validate-harness-templates.mjs",
     "check": "pnpm run test && pnpm run validate"
   },

@@ -1,6 +1,9 @@
 # PAYPAL DROP-IN — link an already discovered runtime service to Postman.
-# This is the evidence source for a later implemented-route-versus-spec gate;
-# it does not claim that rogue-endpoint comparison is complete by itself.
+# This is the evidence source for a later implemented-route-versus-spec gate.
+# The current upstream Insights action can perform Catalog discovery/linking
+# with a service account, but its final Akita acknowledgement still requires a
+# user identity. This template fails before writes until that backend boundary
+# supports service accounts end to end.
 stage:
   name: Postman - Discover runtime routes
   identifier: postman_discover_runtime_routes
@@ -62,6 +65,18 @@ stage:
                 }
 
         - step:
+            type: Run
+            name: Enforce service-account-only Insights boundary
+            identifier: enforce_service_account_only_insights_boundary
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                echo 'Blocked before writes: Postman Insights Akita acknowledgement does not yet accept a service-account identity.' >&2
+                echo 'Do not substitute a human user token in a PayPal CI pipeline. Enable this stage only after the Postman-CS action supports a service-account-only atomic mode.' >&2
+                exit 2
+
+        - step:
             type: Action
             name: Link through Postman-CS Insights
             identifier: link_through_postman_cs_insights
@@ -74,9 +89,7 @@ stage:
                 system-environment-id: <+stage.variables.system_environment_id>
                 cluster-name: <+stage.variables.cluster_name>
                 repo-url: <+stage.variables.repo_url>
-                postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
-                postman-access-token: <+secrets.getValue("paypal_postman_user_access_token")>
-                postman-team-id: <+secrets.getValue("paypal_postman_team_id")>
+                postman-api-key: <+secrets.getValue("paypal_postman_service_account_pmak")>
                 github-token: <+secrets.getValue("paypal_service_repo_github_token")>
                 create-api-key: "false"
                 credential-preflight: enforce
@@ -95,6 +108,7 @@ stage:
               shell: Sh
               command: |-
                 set -eu
-                echo 'POSTMAN_HARNESS event=stage_complete stage=runtime-route-discovery writePolicy=approved-link-only'
+                echo 'POSTMAN_HARNESS event=stage_blocked stage=runtime-route-discovery writePolicy=none'
+                echo 'POSTMAN_HARNESS identity=service-account-only;backendGate=akita-user-identity'
                 echo 'POSTMAN_HARNESS dependency=postman-cs/postman-insights-onboarding-action ref=488e9711688c4aa5358d11a7c12716ee0e97965a'
                 echo 'POSTMAN_HARNESS limitation=route-inventory-comparison-remains-a-separate-customer-discovery-gate'

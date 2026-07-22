@@ -27,6 +27,13 @@
       "repository": "https://github.com/postman-cs/postman-repo-sync-action",
       "commit": "3d3f93f3360d6ef1a435f0a66be962c5b6d06eaf",
       "purpose": "Materialize Postman assets in the checked-out repository without an automatic push."
+    },
+    "postman-cs/postman-resolve-service-token-action": {
+      "repository": "https://github.com/postman-cs/postman-resolve-service-token-action",
+      "commit": "38f8cd423ebcd65ecfcd99336e771ffe2de98b5b",
+      "harnessRef": "v2.0.4",
+      "binarySha256": "1e0b51548b67848a1f168cf543bf9779b2acb0dcd26a392aa99c2efd43f76c09",
+      "purpose": "Verify that the configured PMAK belongs to a Postman service account and mint a fresh stage-scoped access token."
     }
   }
 }

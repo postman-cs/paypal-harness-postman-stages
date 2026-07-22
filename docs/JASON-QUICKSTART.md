@@ -43,12 +43,15 @@ floating tag, or different repository is not accepted for production.
 3. In **Project Setup → Templates**, import these files from that connector,
    repository, and the `main` branch as remote stage templates:
 
-   - `.harness/templates/paypal-postman-onboarding-v0.1.0.yaml`
-   - `.harness/templates/paypal-postman-cli-quality-gate-v0.1.0.yaml`
+   - `.harness/templates/paypal-postman-onboarding-v0.2.0.yaml`
+   - `.harness/templates/paypal-postman-cli-quality-gate-v0.2.0.yaml`
 
-   Keep version `v0.1.0`; mark it stable only after PayPal review.
-4. Create the Harness secret `paypal_postman_api_key` using the approved
-   Postman service-account key. Do not put that key in Git, a runtime input, a
+   Keep version `v0.2.0`; mark it stable only after PayPal review. Existing
+   v0.1.0 imports remain available and are not mutated in place.
+4. Create Harness secret `paypal_postman_service_account_pmak` using a PMAK
+   generated for the approved Postman service account. A personal user PMAK can
+   authenticate Postman CLI but cannot mint the short-lived service token used
+   for asset operations. Do not put the PMAK in Git, a runtime input, a
    command-line argument, or a build log.
 5. Confirm the Linux AMD64 build runner has the reviewed Postman CLI already
    installed. Runtime `curl | sh` installation is not allowed.
@@ -101,9 +104,18 @@ pnpm harness:install -- --rollback .harness-backups/PRINTED_BACKUP_FILE.yaml
 ## First run inputs
 
 Use the non-secret defaults in `harness/inputs/jason-orders.defaults.yaml`.
-Supply the exact existing Winter Trinity workspace ID and at least one reviewed
-smoke or contract collection ID. The public Orders v2 contract is pinned by
-both upstream commit and SHA-256.
+The public Orders v2 contract is pinned by both upstream commit and SHA-256.
+Choose one workspace strategy:
+
+- For the Winter Trinity rehearsal, use `workspace_mode=existing` and supply
+  its exact ID.
+- To bootstrap a new service workspace, use `workspace_mode=create`, leave the
+  workspace ID empty, and supply the owning Postman `workspace_team_id` plus
+  the canonical PayPal service-repo URL. The Postman-CS bootstrap action then
+  creates/reconciles the workspace and emits its IDs to the CLI stage.
+
+Supply or accept at least one reviewed smoke or contract collection ID from the
+onboarding outputs.
 
 1. Keep `approve_postman_write=false` for input review.
 2. Confirm the onboarding target, stable asset IDs, and collection scope.
@@ -121,3 +133,30 @@ both upstream commit and SHA-256.
 - Postman CLI version, lint JSON, and JUnit results.
 - First- and second-run Postman asset IDs for the idempotency comparison.
 - Human approval and the unchanged downstream PayPal promotion controls.
+
+The 2026-07-22 rehearsal reached Postman but stopped before any write because
+the available key was a personal PMAK. See
+[`JASON-SIMULATION-2026-07-22.md`](JASON-SIMULATION-2026-07-22.md) for the
+boundary-by-boundary evidence and clean Winter Trinity after-state.
+
+## macOS service-account preflight
+
+The self-contained Postman-CS release binary used by Harness is Linux AMD64;
+there is no Darwin release artifact yet. On a Mac, use the same Postman-CS
+resolver through its pinned public npm CLI. Node 24 or newer is required.
+
+```sh
+read -s "POSTMAN_API_KEY?Service-account PMAK: "
+echo
+export POSTMAN_API_KEY
+export POSTMAN_REGION='us'
+pnpm postman:service-account:preflight:mac
+unset POSTMAN_API_KEY
+unset POSTMAN_REGION
+```
+
+The wrapper invokes
+`@postman-cse/onboarding-resolve-service-token@2.0.4`, never passes the PMAK as
+a command-line argument, prints only the team ID, and discards the short-lived
+token. A personal PMAK fails with HTTP 401, which is the expected result for the
+key currently available on this Mac.

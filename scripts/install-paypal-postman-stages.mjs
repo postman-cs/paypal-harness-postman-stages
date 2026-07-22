@@ -14,6 +14,7 @@ import {
   pipelineDigest,
   validateGeneratedTemplateCatalog,
 } from './harness-installer-core.mjs';
+import { REMOTE_TEMPLATE_VERSION } from './build-remote-templates.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -114,7 +115,7 @@ async function verifyRemoteSources(options) {
   assertConnectorTargetsProductionRepo(connector, options.connector);
   for (const expected of DELIVERY_STAGES) {
     const templateSearch = query(options, {
-      versionLabel: 'v0.1.0',
+      versionLabel: REMOTE_TEMPLATE_VERSION,
       branch: PRODUCTION_SOURCE.branch,
       storeType: 'REMOTE',
       connectorRef: options.connector,

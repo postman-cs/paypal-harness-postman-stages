@@ -69,7 +69,7 @@ test('production source rejects forks, wrappers, mutable branches, and personal 
 test('runtime actions must call postman-cs directly at a commit or approved exact Harness tag', () => {
   const onboarding = readFileSync(resolve(root, 'harness/stages/spec-to-postman-onboarding.yaml'), 'utf8');
   const cli = readFileSync(resolve(root, 'harness/stages/postman-cli-quality-gate.yaml'), 'utf8');
-  assert.equal(assertImmutablePostmanCsActions([onboarding, cli]), 1);
+  assert.equal(assertImmutablePostmanCsActions([onboarding, cli]), 2);
   assert.throws(
     () => assertImmutablePostmanCsActions(['uses: postman-cs/postman-api-onboarding-action@main']),
     /approved exact Harness release tag/,

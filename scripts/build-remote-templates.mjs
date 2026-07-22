@@ -5,18 +5,18 @@ import { parse, stringify } from 'yaml';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-export const REMOTE_TEMPLATE_VERSION = 'v0.1.0';
+export const REMOTE_TEMPLATE_VERSION = 'v0.2.0';
 export const REMOTE_TEMPLATES = [
   {
     stagePath: 'harness/stages/spec-to-postman-onboarding.yaml',
-    templatePath: '.harness/templates/paypal-postman-onboarding-v0.1.0.yaml',
+    templatePath: '.harness/templates/paypal-postman-onboarding-v0.2.0.yaml',
     name: 'PayPal - Postman onboarding',
     identifier: 'paypal_postman_onboarding',
     description: 'Pinned GitHub OpenAPI contract to idempotent Postman workspace, spec, and collection onboarding.',
   },
   {
     stagePath: 'harness/stages/postman-cli-quality-gate.yaml',
-    templatePath: '.harness/templates/paypal-postman-cli-quality-gate-v0.1.0.yaml',
+    templatePath: '.harness/templates/paypal-postman-cli-quality-gate-v0.2.0.yaml',
     name: 'PayPal - Postman CLI quality gate',
     identifier: 'paypal_postman_cli_quality_gate',
     description: 'Read-only Postman CLI lint and collection execution gate with Harness JUnit results.',

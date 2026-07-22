@@ -20,6 +20,8 @@ const stageTemplates = [
 const remoteTemplates = [
   '.harness/templates/paypal-postman-onboarding-v0.1.0.yaml',
   '.harness/templates/paypal-postman-cli-quality-gate-v0.1.0.yaml',
+  '.harness/templates/paypal-postman-onboarding-v0.2.0.yaml',
+  '.harness/templates/paypal-postman-cli-quality-gate-v0.2.0.yaml',
 ];
 const expectedStageActions = new Map([
   ['harness/stages/spec-to-postman-onboarding.yaml', 'postman-cs/postman-bootstrap-action'],

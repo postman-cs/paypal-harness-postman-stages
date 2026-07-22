@@ -59,8 +59,12 @@ The composed Jason proof was created once and then updated with the identical
 two-stage YAML. Both Harness writes returned HTTP 200 with no YAML errors.
 Readback confirmed the regular onboarding SHA, CLI gate, absence of TDD, and
 absence of the personal wrapper. The definition identifier is
-`PayPal_Jason_Orders_DropIn_Proof`; execution remains intentionally pending the
-approved Winter Trinity values.
+`PayPal_Jason_Orders_DropIn_Proof`. Execution sequence 4 reached the regular
+Postman-CS onboarding core, installed and authenticated Postman CLI 1.44.0,
+selected exact Winter Trinity, and then failed closed before an asset write
+because the available personal PMAK could not mint a service-account token.
+The workspace remained unchanged. See
+`docs/JASON-SIMULATION-2026-07-22.md`.
 
 ## Production handoff hardening — 2026-07-22
 
@@ -77,4 +81,27 @@ approved Winter Trinity values.
   reads the Harness definition back, and verifies idempotent linked stages.
 - Added deterministic template generation, collision and ordering tests, source
   policy tests, connector/template preflight tests, and a non-secret Jason input
-  manifest. The full local suite passes 29 tests.
+  manifest. That suite passed 31 tests before the live rehearsal.
+
+## Service-account and workspace hardening — v0.2.0
+
+- Preserved v0.1.0 template files and added v0.2.0 templates rather than
+  rewriting an imported Harness version in place.
+- Renamed the production secret contract to
+  `paypal_postman_service_account_pmak`; tests reject personal-user token/key
+  secret references across the customer stage catalog.
+- Added `workspace_mode=existing|create`. Existing mode requires an immutable
+  workspace ID. Create mode requires an owning Postman sub-team ID and
+  canonical PayPal service-repo URL, then emits workspace identity to the CLI
+  stage.
+- Generalized both delivery stages to accept any HTTPS spec URL with an exact
+  SHA-256 while keeping the reviewed public Orders artifact as the default.
+- Added a checksum-pinned `postman-resolve-service-token-action` v2.0.4
+  preflight to the CLI stage, so a personal PMAK fails before quality-gate work.
+- Added a macOS Node 24 wrapper around the pinned Postman-CS npm CLI; it reports
+  only the service-account team ID and discards the short-lived access token.
+- Added a pre-write backend guard to runtime Insights linking. The current
+  Akita acknowledgement path requires a user identity and therefore does not
+  meet PayPal's service-account-only policy.
+- Expanded the suite to 32 passing tests and added the production technical
+  checklist in `docs/CUSTOMER-TECHNICAL-CONSIDERATIONS.md`.

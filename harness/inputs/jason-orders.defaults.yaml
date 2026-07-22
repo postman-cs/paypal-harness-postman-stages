@@ -2,16 +2,20 @@ version: 1
 deliverySource:
   repository: postman-cs/paypal-harness-postman-stages
   branch: main
-  templateVersion: v0.1.0
+  templateVersion: v0.2.0
 proof:
   service: paypal-orders-v2
   specUrl: https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json
   specSha256: 14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6
 runtimeInputs:
+  workspaceMode: existing
   workspaceId: REQUIRED_FROM_PAYPAL
+  targetWorkspaceName: Winter Trinity
+  workspaceTeamId: REQUIRED_WHEN_WORKSPACE_MODE_CREATE
+  serviceRepoUrl: REQUIRED_WHEN_WORKSPACE_MODE_CREATE
   smokeCollectionId: REQUIRED_OR_USE_ONBOARDING_OUTPUT
   contractCollectionId: OPTIONAL
   environmentId: OPTIONAL
   approvePostmanWrite: false
 secretReferences:
-  postmanApiKey: paypal_postman_api_key
+  serviceAccountPmak: paypal_postman_service_account_pmak

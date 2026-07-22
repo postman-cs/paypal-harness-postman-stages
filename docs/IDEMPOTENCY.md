@@ -2,10 +2,10 @@
 
 | Stage | Mutation policy | Idempotency rule |
 | --- | --- | --- |
-| `spec-to-postman-onboarding` | Human-approved Postman upsert; no Git write | Existing workspace is mandatory; `spec-sync-mode=update`, `collection-sync-mode=refresh`, and known asset IDs must reuse the same objects |
+| `spec-to-postman-onboarding` | Human-approved Postman upsert; no Git write | Existing mode reuses an immutable workspace ID; create mode reconciles by owning sub-team plus canonical service-repo URL; `spec-sync-mode=update`, `collection-sync-mode=refresh`, and emitted asset IDs must reuse the same objects |
 | `postman-cli-quality-gate` | Read-only | Exact workspace identity plus the same collection/environment IDs must produce the same pass/fail result and no Postman/Git mutation |
 | `postman-to-git-sync` | Local `commit-only` | Same Postman asset versions must produce no new diff/commit on the second run; the stage cannot push |
-| `runtime-route-discovery` | Human-approved linkage | Existing service/workspace/environment/repo tuple is reused; `create-api-key=false` prevents durable-key proliferation |
+| `runtime-route-discovery` | Currently blocked before writes | Service-account-only policy fails closed until Insights acknowledgement is supported atomically; `create-api-key=false` prevents durable-key proliferation |
 
 ## Automated proof available now
 
@@ -21,7 +21,8 @@ onboarding, `commit-only` for Git sync, and read-only CLI commands.
 
 ## Live acceptance sequence
 
-Once the approved Winter Trinity PMAK and asset IDs are available:
+Once a service-account PMAK and the approved target workspace strategy are
+available:
 
 1. Record Git commit, Orders spec digest, direct action SHAs, workspace ID,
    spec ID, collection IDs, environment ID, and write approvals.

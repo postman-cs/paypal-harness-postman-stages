@@ -24,12 +24,20 @@ test('regular onboarding is the primary Postman lifecycle path', () => {
   assert.doesNotMatch(onboarding, /postman-onboarding-tdd/);
   assert.doesNotMatch(onboarding, /repo-write-mode:|generate-ci-workflow:|enable-insights:|skip-built-in-tests:/);
   assert.match(onboarding, /approve_postman_write/);
-  assert.match(onboarding, /--workspace-id "\$workspace_id"/);
+  assert.match(onboarding, /workspace_mode/);
+  assert.match(onboarding, /target_workspace_name/);
+  assert.match(onboarding, /existing\) set -- "\$@" --workspace-id "\$workspace_id"/);
+  assert.match(onboarding, /workspace-team-id/);
+  assert.match(onboarding, /paypal_postman_service_account_pmak/);
 });
 
-test('CLI stage is read-only, Winter Trinity locked, and publishes JUnit', () => {
+test('CLI stage verifies service-account identity, locks workspace name and ID, and publishes JUnit', () => {
+  assert.match(cli, /postman-cs\/postman-resolve-service-token-action\/releases/);
+  assert.match(cli, /identity=verified-service-account-pmak/);
+  assert.match(cli, /paypal_postman_service_account_pmak/);
   assert.match(cli, /postman login --with-api-key/);
-  assert.match(cli, /postman search workspaces 'Winter Trinity'/);
+  assert.match(cli, /postman search workspaces "\$WORKSPACE_NAME"/);
+  assert.match(cli, /EXPECTED_WORKSPACE_NAME/);
   assert.match(cli, /postman spec lint/);
   assert.match(cli, /postman collection run/);
   assert.match(cli, /onboarding_collections_json/);
@@ -57,6 +65,18 @@ test('Postman to Git is human gated and cannot push', () => {
 
 test('runtime discovery is gated and does not overclaim rogue-route comparison', () => {
   assert.match(insights, /approve_runtime_link/);
+  assert.match(insights, /enforce_service_account_only_insights_boundary/);
+  assert.match(insights, /paypal_postman_service_account_pmak/);
+  assert.doesNotMatch(insights, /paypal_postman_user_access_token/);
   assert.match(insights, /create-api-key: "false"/);
   assert.match(insights, /route-inventory-comparison-remains-a-separate-customer-discovery-gate/);
+});
+
+test('every customer stage uses only the service-account PMAK secret', () => {
+  for (const source of [onboarding, cli, gitSync, insights]) {
+    assert.doesNotMatch(source, /paypal_postman_user_access_token|paypal_postman_api_key/);
+  }
+  for (const source of [onboarding, cli, gitSync, insights]) {
+    assert.match(source, /paypal_postman_service_account_pmak|writePolicy=none/);
+  }
 });

@@ -10,19 +10,28 @@
 Pipeline `PayPal_Jason_Orders_DropIn_Proof` was created in Harness account
 `MqRO9-E1S3KCCbydo-lPPg`, organization `default`, project `default_project` on
 2026-07-22 from the exact onboarding and CLI stage files in this repository.
-The create returned HTTP 200 with no YAML errors. Submitting the identical
-definition again returned HTTP 200, and server readback confirmed:
+The create returned HTTP 200 with no YAML errors. Submitting the definition
+again returned HTTP 200. Four real execution attempts then hardened Harness
+compatibility, and server readback of the current proof confirmed:
 
-- regular onboarding pin
-  `postman-cs/postman-api-onboarding-action@d3d3776077fdcfa0b3e319e208dd963d18a0a0d9`;
+- direct download of the checksum-verified
+  `postman-cs/postman-bootstrap-action@v2.10.5` self-contained binary, mapped to
+  commit `848edbabcbfd311168e05b2976b907736f020ba5`;
 - independent `postman_cli_quality_gate` stage;
 - no `postman-onboarding-tdd` action; and
 - no `danielshively-source/paypal-harness-pipeline` dependency.
 
-This proves the first two-stage customer definition is accepted and can be
-reapplied without creating another pipeline. It does not prove Postman asset
-idempotency because the approved Winter Trinity PMAK/workspace/collection IDs
-are not present at the connected Harness project scope; no execution occurred.
+Sequence 4 (`OLoAYo9lQYqvv6hEEqhXHQ`) passed GitHub clone, immutable Orders
+source verification, the explicit write gate, Postman-CS binary checksum,
+Postman CLI 1.44.0 installation/login, and exact Winter Trinity targeting. It
+then failed closed before the spec write: the supplied personal PMAK cannot mint
+the required service-account token, and the retry returned HTTP 401.
+
+The Winter Trinity after-state still contains zero collections, APIs,
+environments, mocks, and monitors, matching the before-state. There was no
+partial mutation. Successful asset idempotency remains unproven until a true
+service-account PMAK is installed and two identical runs succeed. See
+[`JASON-SIMULATION-2026-07-22.md`](JASON-SIMULATION-2026-07-22.md).
 
 ## Selected sandbox
 
@@ -99,11 +108,11 @@ generated config are valid before the private-action access gate.
 1. Create `paypal_github_token` as a Harness Secret using a fine-grained token
    with read-only contents access to the private wrapper repository. Do not
    reuse a broad local GitHub CLI token.
-2. Generate a Postman API key in the account/team that owns `Winter Trinity`.
-   The currently stored key authenticates successfully but returns zero exact
-   organization-workspace matches for that name.
-3. After the correct key resolves exactly one workspace, create Harness Secret
-   `paypal_postman_api_key` from that key and record the workspace ID.
+2. Create a Postman service account in the team that owns `Winter Trinity` and
+   generate its PMAK. The current personal PMAK authenticates and resolves the
+   workspace, but cannot mint a service token.
+3. Create Harness secret `paypal_postman_service_account_pmak` from that PMAK.
+   The exact workspace ID is already recorded and validated.
 4. Select collection IDs that are members of `Winter Trinity`; the two IDs in
    the old sandbox resolve to nothing through the current account.
 5. Import the additive sandbox pipeline and run `operation=validate` first.
@@ -112,9 +121,11 @@ generated config are valid before the private-action access gate.
    `operation=cli-test` with the workspace and collection inputs. No production
    onboarding is authorized by this proof.
 
-Harness secret inventory was rechecked after the pipeline update. Neither
-`paypal_github_token` nor `paypal_postman_api_key` exists at the connected
-project scope, so no execution was attempted.
+Harness secret inventory was rechecked after the pipeline update.
+`postman_cs_github_pat` and the legacy `paypal_postman_api_key` exist at project
+scope; values were not logged. Four executions were attempted. Template v0.2.0
+uses the new `paypal_postman_service_account_pmak` name so the personal key
+cannot be mistaken for production readiness.
 
 ## Repeatability evidence
 

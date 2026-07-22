@@ -59,8 +59,10 @@ in Kepler and is used only for attendance.
    the `postman-cs/postman-bootstrap-action` v2.10.5 release binary directly,
    verifies its published SHA-256, and makes no Git write. This is the
    self-contained CLI for regular onboarding, not the TDD preview.
-4. Create/reference Harness secret `paypal_postman_api_key`; never paste the
-   PMAK into YAML or a transcript.
+4. Create/reference Harness secret `paypal_postman_service_account_pmak` from a
+   PMAK generated for the Postman service account; never paste it into YAML or
+   a transcript. Demonstrate that the service-token preflight rejects a
+   personal-user PMAK.
 5. Provide the exact existing Winter Trinity workspace ID, set
    `approve_postman_write=true`, and run regular Orders onboarding.
 6. Record generated/reused spec and collection IDs; rerun unchanged and verify
@@ -72,7 +74,8 @@ in Kepler and is used only for attendance.
 9. Review `postman-to-git-sync.yaml` but do not run it until asset IDs are
    approved; its maximum authority is an unpushed local commit.
 10. Review `runtime-route-discovery.yaml` as the input to rogue-endpoint work;
-    do not claim the comparison is complete.
+    show its pre-write service-account backend guard and do not claim the
+    comparison or Insights linking is complete.
 
 ## Eric's completion gate
 

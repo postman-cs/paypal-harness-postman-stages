@@ -47,6 +47,7 @@ export function verifySupplyChain(source, manifest, options = {}) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const customerStages = [
     'harness/stages/spec-to-postman-onboarding.yaml',
+    'harness/stages/postman-cli-quality-gate.yaml',
     'harness/stages/postman-to-git-sync.yaml',
     'harness/stages/runtime-route-discovery.yaml',
   ].map((relative) => readFileSync(resolve(root, relative), 'utf8')).join('\n');

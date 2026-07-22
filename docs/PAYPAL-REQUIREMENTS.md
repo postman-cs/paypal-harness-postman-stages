@@ -39,8 +39,11 @@ Eric's Linear comment:
 
 - Full top-level commit pins for customer-stage Postman-CS actions.
 - Harness Secret references only; no raw PMAK or Git token in YAML or logs.
-- Exact Winter Trinity name plus workspace ID.
-- Existing workspace required; writes need explicit runtime approval.
+- Dedicated Postman service-account PMAK; personal-user PMAKs must fail the
+  preflight before writes.
+- Exact Winter Trinity name plus workspace ID for the proof, or explicit
+  create-mode sub-team/repository ownership for a new service workspace.
+- Writes need explicit runtime approval.
 - Postman CLI is the test executor and publishes JUnit.
 - Git materialization is `commit-only`; no automatic push or merge.
 - A failed Postman gate blocks downstream promotion.

@@ -2,7 +2,8 @@
 # Harness cannot execute the regular composite's nested actions reliably, so
 # this stage calls its Node-based bootstrap core directly. Exact tag v2.10.5
 # resolves to the locked commit in postman-cs.lock.json.
-# PayPal supplies an existing workspace ID to prevent duplicate workspaces.
+# The stage can reuse an approved workspace or let the Postman-CS bootstrap
+# create/reconcile one under an explicit enterprise sub-team.
 stage:
   name: Postman - Spec to Postman onboarding
   identifier: postman_spec_to_postman_onboarding
@@ -16,9 +17,41 @@ stage:
       type: String
       required: true
       value: <+input>.default(https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json)
-    - name: workspace_id
+    - name: spec_sha256
       type: String
       required: true
+      value: <+input>.default(14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6)
+    - name: workspace_mode
+      type: String
+      required: true
+      value: <+input>.default(existing).allowedValues(existing,create)
+    - name: workspace_id
+      type: String
+      required: false
+      value: <+input>
+    - name: target_workspace_name
+      type: String
+      required: false
+      value: <+input>.default(Winter Trinity)
+    - name: workspace_team_id
+      type: String
+      required: false
+      value: <+input>
+    - name: service_repo_url
+      type: String
+      required: false
+      value: <+input>
+    - name: governance_group
+      type: String
+      required: false
+      value: <+input>
+    - name: requester_email
+      type: String
+      required: false
+      value: <+input>
+    - name: workspace_admin_user_ids
+      type: String
+      required: false
       value: <+input>
     - name: spec_id
       type: String
@@ -58,12 +91,17 @@ stage:
               shell: Sh
               command: |-
                 set -eu
-                test '<+stage.variables.spec_url>' = 'https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json'
+                SPEC_URL='<+stage.variables.spec_url>'
+                SPEC_SHA256='<+stage.variables.spec_sha256>'
+                case "$SPEC_URL" in https://*) ;; *) echo 'spec_url must use HTTPS.' >&2; exit 2 ;; esac
+                printf '%s' "$SPEC_SHA256" | grep -Eq '^[a-fA-F0-9]{64}$' || {
+                  echo 'spec_sha256 must be an exact 64-character SHA-256 digest.' >&2
+                  exit 2
+                }
                 mkdir -p .postman-stage/openapi
-                curl --fail --silent --show-error --location '<+stage.variables.spec_url>' \
+                curl --fail --silent --show-error --location "$SPEC_URL" \
                   --output .postman-stage/openapi/checkout_orders_v2.json
-                printf '%s  %s\n' \
-                  14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6 \
+                printf '%s  %s\n' "$SPEC_SHA256" \
                   .postman-stage/openapi/checkout_orders_v2.json | sha256sum --check --status
 
         - step:
@@ -75,13 +113,36 @@ stage:
               command: |-
                 set -eu
                 [ '<+stage.variables.approve_postman_write>' = 'true' ] || {
-                  echo 'Set approve_postman_write=true after reviewing the Winter Trinity workspace and immutable spec.' >&2
+                  echo 'Set approve_postman_write=true after reviewing the target workspace strategy and immutable spec.' >&2
                   exit 2
                 }
-                [ -n '<+stage.variables.workspace_id>' ] || {
-                  echo 'An existing target workspace ID is mandatory.' >&2
-                  exit 2
-                }
+                case '<+stage.variables.workspace_mode>' in
+                  existing)
+                    [ -n '<+stage.variables.workspace_id>' ] || {
+                      echo 'workspace_id is required when workspace_mode=existing.' >&2
+                      exit 2
+                    }
+                    [ -n '<+stage.variables.target_workspace_name>' ] || {
+                      echo 'target_workspace_name is required when workspace_mode=existing.' >&2
+                      exit 2
+                    }
+                    ;;
+                  create)
+                    [ -z '<+stage.variables.workspace_id>' ] || {
+                      echo 'workspace_id must be empty when workspace_mode=create.' >&2
+                      exit 2
+                    }
+                    [ -n '<+stage.variables.workspace_team_id>' ] || {
+                      echo 'workspace_team_id is required for deterministic enterprise workspace ownership.' >&2
+                      exit 2
+                    }
+                    [ -n '<+stage.variables.service_repo_url>' ] || {
+                      echo 'service_repo_url is required so create mode can reconcile the canonical workspace on reruns.' >&2
+                      exit 2
+                    }
+                    ;;
+                  *) echo 'workspace_mode must be existing or create.' >&2; exit 2 ;;
+                esac
 
         - step:
             type: Run
@@ -90,7 +151,7 @@ stage:
             spec:
               shell: Sh
               envVariables:
-                POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_api_key")>
+                POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_service_account_pmak")>
               command: |-
                 set -eu
                 VERSION=2.10.5
@@ -107,11 +168,16 @@ stage:
                 set -- \
                   --project-name "$project_name" \
                   --spec-url "$spec_url" \
-                  --workspace-id "$workspace_id" \
                   --collection-sync-mode refresh \
                   --spec-sync-mode update \
                   --credential-preflight enforce \
                   --postman-region us
+                case "$workspace_mode" in existing) set -- "$@" --workspace-id "$workspace_id" ;; esac
+                case "${workspace_team_id:-}" in ''|'<+'*) ;; *) set -- "$@" --workspace-team-id "$workspace_team_id" ;; esac
+                case "${service_repo_url:-}" in ''|'<+'*) ;; *) set -- "$@" --repo-url "$service_repo_url" ;; esac
+                case "${governance_group:-}" in ''|'<+'*) ;; *) set -- "$@" --governance-group "$governance_group" ;; esac
+                case "${requester_email:-}" in ''|'<+'*) ;; *) set -- "$@" --requester-email "$requester_email" ;; esac
+                case "${workspace_admin_user_ids:-}" in ''|'<+'*) ;; *) set -- "$@" --workspace-admin-user-ids "$workspace_admin_user_ids" ;; esac
                 case "${spec_id:-}" in ''|'<+'*) ;; *) set -- "$@" --spec-id "$spec_id" ;; esac
                 case "${baseline_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --baseline-collection-id "$baseline_collection_id" ;; esac
                 case "${smoke_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --smoke-collection-id "$smoke_collection_id" ;; esac
@@ -121,8 +187,15 @@ stage:
                 set -a
                 . "$DOTENV"
                 set +a
-                [ "$POSTMAN_BOOTSTRAP_WORKSPACE_ID" = "$workspace_id" ]
+                case "$workspace_mode" in
+                  existing) [ "$POSTMAN_BOOTSTRAP_WORKSPACE_ID" = "$workspace_id" ] ;;
+                  create) [ -n "$POSTMAN_BOOTSTRAP_WORKSPACE_ID" ] ;;
+                esac
                 export workspace_id="$POSTMAN_BOOTSTRAP_WORKSPACE_ID"
+                case "$workspace_mode" in
+                  existing) export workspace_name="$target_workspace_name" ;;
+                  create) export workspace_name="$POSTMAN_BOOTSTRAP_WORKSPACE_NAME" ;;
+                esac
                 export spec_id="$POSTMAN_BOOTSTRAP_SPEC_ID"
                 export baseline_collection_id="$POSTMAN_BOOTSTRAP_BASELINE_COLLECTION_ID"
                 export smoke_collection_id="$POSTMAN_BOOTSTRAP_SMOKE_COLLECTION_ID"
@@ -130,6 +203,7 @@ stage:
                 export collections_json="$POSTMAN_BOOTSTRAP_COLLECTIONS_JSON"
               outputVariables:
                 - name: workspace_id
+                - name: workspace_name
                 - name: spec_id
                 - name: baseline_collection_id
                 - name: smoke_collection_id
@@ -146,4 +220,5 @@ stage:
                 set -eu
                 echo 'POSTMAN_HARNESS event=stage_complete stage=spec-to-postman-onboarding writePolicy=approved-postman-upsert+git-none'
                 echo 'POSTMAN_HARNESS dependency=postman-cs/postman-bootstrap-action ref=v2.10.5 commit=848edbabcbfd311168e05b2976b907736f020ba5'
-                echo 'POSTMAN_HARNESS idempotency=existing-workspace+refresh-collections+update-spec'
+                echo 'POSTMAN_HARNESS identity=service-account-pmak+fresh-access-token'
+                echo 'POSTMAN_HARNESS idempotency=existing-or-canonical-created-workspace+refresh-collections+update-spec'

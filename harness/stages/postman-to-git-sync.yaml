@@ -86,7 +86,7 @@ stage:
                 branch-strategy: publish-gate
                 canonical-branch: <+stage.variables.canonical_branch>
                 credential-preflight: enforce
-                postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
+                postman-api-key: <+secrets.getValue("paypal_postman_service_account_pmak")>
                 postman-region: us
 
         - step:
@@ -98,6 +98,7 @@ stage:
               command: |-
                 set -eu
                 echo 'POSTMAN_HARNESS event=stage_complete stage=postman-to-git-sync writePolicy=commit-only'
+                echo 'POSTMAN_HARNESS identity=service-account-pmak+fresh-access-token'
                 echo 'POSTMAN_HARNESS dependency=postman-cs/postman-repo-sync-action ref=3d3f93f3360d6ef1a435f0a66be962c5b6d06eaf'
                 git status --short
                 git show --stat --oneline --decorate HEAD

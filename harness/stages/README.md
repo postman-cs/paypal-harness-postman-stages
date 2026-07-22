@@ -7,10 +7,10 @@ approval policy.
 
 | Customer ask | Drop-in stage | Direct Postman-CS dependency | Effect |
 | --- | --- | --- | --- |
-| Sync a checked-in OAS contract into Postman | `spec-to-postman-onboarding.yaml` | `postman-bootstrap-action` (regular onboarding core) | Human-approved stable-ID upsert in an existing workspace; no Git write |
-| Make Postman tests a Harness quality gate | `postman-cli-quality-gate.yaml` | Postman CLI, against assets created by regular onboarding | Exact Winter Trinity identity check, spec lint, collection run, JUnit; read-only |
+| Sync a checked-in OAS contract into Postman | `spec-to-postman-onboarding.yaml` | `postman-bootstrap-action` (regular onboarding core) | Human-approved existing-workspace upsert or new-workspace bootstrap; no Git write |
+| Make Postman tests a Harness quality gate | `postman-cli-quality-gate.yaml` | `postman-resolve-service-token-action` + Postman CLI | Exact service-account and workspace identity checks, spec lint, collection run, JUnit; read-only |
 | Bring governed Postman assets back to the repo | `postman-to-git-sync.yaml` | `postman-repo-sync-action` | Local commit only; never pushes |
-| Discover implemented runtime routes for later rogue-endpoint comparison | `runtime-route-discovery.yaml` | `postman-insights-onboarding-action` | Human-approved link to an already discovered service |
+| Discover implemented runtime routes for later rogue-endpoint comparison | `runtime-route-discovery.yaml` | `postman-insights-onboarding-action` | Backend-blocked before writes until Insights accepts service-account identity end to end |
 
 ## First pipeline for Jason
 
@@ -22,21 +22,24 @@ Tonight's first GitHub → Harness → Postman proof is:
 The onboarding stage downloads and digest-verifies PayPal's public Orders v2
 contract, downloads and checksum-verifies the exact regular-onboarding CLI from
 the `postman-cs/postman-bootstrap-action` v2.10.5 release, reuses the supplied
-Winter Trinity workspace, updates the spec and
-generated collections, disables Insights, skips built-in tests, and makes no Git
-write. The next independent stage uses the pre-provisioned Postman CLI to prove
+Winter Trinity workspace in `existing` mode, updates the spec and generated
+collections, and makes no Git write. In `create` mode the same Postman-CS core
+creates/reconciles a workspace under an explicit Postman sub-team. The next
+independent stage verifies that the PMAK is a service-account credential, then
+uses the pre-provisioned Postman CLI to prove
 the exact Winter Trinity workspace, lint the same Orders contract, execute only
 approved smoke/contract collection IDs, and publish JUnit.
 
 The first run is a controlled Postman sandbox write because onboarding must
 create or refresh Postman assets. It requires `approve_postman_write=true` and
-an existing workspace ID. The CLI quality gate is read-only.
+an explicit workspace strategy. The CLI quality gate is read-only.
 
 ## Required Harness values
 
-- Secret `paypal_postman_api_key`, scoped to the Postman service account that
-  can access Winter Trinity.
-- Exact Winter Trinity workspace ID.
+- Secret `paypal_postman_service_account_pmak`, generated for the Postman
+  service account. A personal-user PMAK is rejected by token minting.
+- Exact Winter Trinity workspace ID for `existing` mode, or the owning sub-team
+  ID and canonical service-repo URL for `create` mode.
 - At least one approved smoke or contract collection ID for the CLI stage.
 - A runner image with the signed Postman CLI already installed. Runtime
   `curl | sh` installation is intentionally prohibited.
@@ -68,13 +71,17 @@ prevents a moved tag from silently changing the executed artifact.
 
 ## Human gates and idempotency
 
-- Onboarding requires an existing workspace ID and explicit write approval;
-  `refresh`/`update` modes and supplied IDs prevent duplicate assets.
+- Onboarding requires explicit write approval and either an existing workspace
+  ID or deterministic create-mode ownership/reconciliation inputs;
+  `refresh`/`update` modes and emitted IDs prevent duplicate assets.
 - CLI quality is read-only and fails if the workspace name/ID is not exact.
 - Git sync requires explicit approval, uses `commit-only`, and cannot push.
 - Runtime discovery requires explicit approval and never creates a durable API
-  key on an ordinary run.
+  key on an ordinary run. It currently fails before writes because the final
+  Insights acknowledgement does not accept a service-account identity.
 
 Runtime discovery is necessary for Deirdre's rogue-endpoint requirement, but it
 is not the comparison itself. Comparing implementation inventory one-to-one
 against the OAS contract remains a visible discovery/implementation gate.
+See `docs/CUSTOMER-TECHNICAL-CONSIDERATIONS.md` for the customer readiness
+checklist and the exact Insights boundary.
