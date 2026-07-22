@@ -41,6 +41,13 @@ Eric's Linear comment:
 - Harness Secret references only; no raw PMAK or Git token in YAML or logs.
 - Dedicated Postman service-account PMAK; personal-user PMAKs must fail the
   preflight before writes.
+- Mandatory per-job service-token mint inside Harness. The customer supplies
+  only the long-lived service-account PMAK through Harness Secrets; the pinned
+  Postman-CS runtime mints, validates, consumes, and discards the short-lived
+  token automatically. No operator-managed token copy is allowed.
+- Linux AMD64 execution remains required by the shipped templates because the
+  checksum-pinned resolver and bootstrap release binaries execute in Harness;
+  the macOS path is local preflight only.
 - Exact Winter Trinity name plus workspace ID for the proof, or explicit
   create-mode sub-team/repository ownership for a new service workspace.
 - Writes need explicit runtime approval.

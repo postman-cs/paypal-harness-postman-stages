@@ -62,7 +62,9 @@ in Kepler and is used only for attendance.
 4. Create/reference Harness secret `paypal_postman_service_account_pmak` from a
    PMAK generated for the Postman service account; never paste it into YAML or
    a transcript. Demonstrate that the service-token preflight rejects a
-   personal-user PMAK.
+   personal-user PMAK. State explicitly that each Harness job automatically
+   mints a fresh short-lived service token from this PMAK; Jason never mints,
+   copies, or stores the short-lived token himself.
 5. Provide the exact existing Winter Trinity workspace ID, set
    `approve_postman_write=true`, and run regular Orders onboarding.
 6. Record generated/reused spec and collection IDs; rerun unchanged and verify

@@ -68,6 +68,11 @@ an exact SHA-256 in addition to the lock-mapped tag and commit.
 - Secret `paypal_postman_service_account_pmak` containing a PMAK generated for
   the Postman service account. A personal-user PMAK cannot mint the short-lived
   service token required for asset operations.
+- A fresh service token must be minted inside every Harness job that performs
+  Postman work. Jason does not mint or copy this token manually: regular
+  onboarding mints it inside the pinned bootstrap runtime, and the CLI gate
+  uses the checksum-pinned Postman-CS resolver before doing any work. The token
+  is job-scoped and must never be stored as a Harness secret or output.
 - Either an exact existing workspace ID, or `workspace_mode=create` plus the
   owning Postman sub-team ID and canonical PayPal service-repo URL.
 - At least one approved smoke or contract collection ID.
@@ -92,8 +97,10 @@ pnpm postman:service-account:preflight:mac
 unset POSTMAN_API_KEY
 ```
 
-The Mac command discards the minted short-lived token. Harness continues to use
-the checksum-pinned Linux release binary.
+The Mac command discards the minted short-lived token and proves only that the
+PMAK is eligible. Harness still needs the Linux runtime path because that is
+where the real job mints and consumes a fresh token. The default Harness
+templates use the checksum-pinned Linux AMD64 resolver and bootstrap binaries.
 
 To install the two linked stages into an existing pipeline, run the installer
 in dry-run mode first. It requires an explicit downstream stage anchor, creates

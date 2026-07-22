@@ -53,8 +53,23 @@ floating tag, or different repository is not accepted for production.
    authenticate Postman CLI but cannot mint the short-lived service token used
    for asset operations. Do not put the PMAK in Git, a runtime input, a
    command-line argument, or a build log.
-5. Confirm the Linux AMD64 build runner has the reviewed Postman CLI already
-   installed. Runtime `curl | sh` installation is not allowed.
+5. Keep service-token minting in the pipeline. Jason doesn't manually generate,
+   copy, or persist the short-lived token. On every job, regular onboarding
+   mints one inside `postman-bootstrap-action`; the CLI gate separately runs the
+   checksum-pinned `postman-resolve-service-token-action` Linux binary and fails
+   before work if minting or team identity validation fails.
+6. Confirm the Linux AMD64 build runner has the reviewed Postman CLI already
+   installed and can execute the pinned Postman-CS Linux binaries. Runtime
+   `curl | sh` installation is not allowed.
+
+### Mandatory token-mint contract
+
+The Linux piece is part of the production design, not a Mac compatibility
+workaround. The Mac command below only preflights the long-lived PMAK. The
+actual Harness job must exchange that PMAK for a fresh, short-lived service
+token at runtime, use it only inside the job, and discard it on completion.
+Never ask an operator to paste a minted token into Harness, Git, an input set,
+or a pipeline log.
 
 Harness documents remote templates as Git-backed reusable entities. The Git
 connector must have API access and username/token authentication; permissions
