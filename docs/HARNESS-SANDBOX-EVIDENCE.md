@@ -27,10 +27,20 @@ Postman CLI 1.44.0 installation/login, and exact Winter Trinity targeting. It
 then failed closed before the spec write: the supplied personal PMAK cannot mint
 the required service-account token, and the retry returned HTTP 401.
 
+Sequence 5 (`ntzUYH0pSXyW9QZbU0QlHQ`) used the replacement system
+service-account PMAK. The Mac preflight and Harness run both minted a
+short-lived token and resolved it to Postman team `13569807`. The run passed
+repository checkout, spec integrity, approval, Postman-CS binary verification,
+credential preflight, Postman CLI login, and existing-workspace selection. It
+then failed closed on the first read of workspace specifications with HTTP 403:
+the service account is not assigned to Winter Trinity workspace
+`d692f930-e186-44e1-bffa-2971bf69ddf4`. No Postman write was attempted.
+
 The Winter Trinity after-state still contains zero collections, APIs,
 environments, mocks, and monitors, matching the before-state. There was no
-partial mutation. Successful asset idempotency remains unproven until a true
-service-account PMAK is installed and two identical runs succeed. See
+partial mutation. Successful asset idempotency remains unproven until the
+verified service account is assigned to the target workspace with write access
+and two identical runs succeed. See
 [`JASON-SIMULATION-2026-07-22.md`](JASON-SIMULATION-2026-07-22.md).
 
 ## Selected sandbox
@@ -108,11 +118,13 @@ generated config are valid before the private-action access gate.
 1. Create `paypal_github_token` as a Harness Secret using a fine-grained token
    with read-only contents access to the private wrapper repository. Do not
    reuse a broad local GitHub CLI token.
-2. Create a Postman service account in the team that owns `Winter Trinity` and
-   generate its PMAK. The current personal PMAK authenticates and resolves the
-   workspace, but cannot mint a service token.
-3. Create Harness secret `paypal_postman_service_account_pmak` from that PMAK.
-   The exact workspace ID is already recorded and validated.
+2. Assign the verified Postman service account to `Winter Trinity`
+   (`d692f930-e186-44e1-bffa-2971bf69ddf4`) with at least the Editor workspace
+   role. The PMAK already mints correctly, but sequence 5 proved the identity
+   cannot access that workspace yet.
+3. Harness secret `paypal_postman_service_account_pmak` is created at project
+   scope and read-back verified. Rotate the PMAK after the working session
+   because the first copy was shared through a conversational channel.
 4. Select collection IDs that are members of `Winter Trinity`; the two IDs in
    the old sandbox resolve to nothing through the current account.
 5. Import the additive sandbox pipeline and run `operation=validate` first.
@@ -122,10 +134,10 @@ generated config are valid before the private-action access gate.
    onboarding is authorized by this proof.
 
 Harness secret inventory was rechecked after the pipeline update.
-`postman_cs_github_pat` and the legacy `paypal_postman_api_key` exist at project
-scope; values were not logged. Four executions were attempted. Template v0.2.0
-uses the new `paypal_postman_service_account_pmak` name so the personal key
-cannot be mistaken for production readiness.
+`postman_cs_github_pat`, the legacy `paypal_postman_api_key`, and the new
+`paypal_postman_service_account_pmak` exist at project scope; values were not
+logged. Five executions were attempted. Template v0.2.0 uses the new secret
+name so the personal key cannot be mistaken for production readiness.
 
 ## Repeatability evidence
 

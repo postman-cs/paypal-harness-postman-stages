@@ -134,8 +134,9 @@ onboarding outputs.
 - First- and second-run Postman asset IDs for the idempotency comparison.
 - Human approval and the unchanged downstream PayPal promotion controls.
 
-The 2026-07-22 rehearsal reached Postman but stopped before any write because
-the available key was a personal PMAK. See
+The 2026-07-22 rehearsal reached Postman with a verified service-account PMAK
+but stopped before any write because the service account was not assigned to
+the Winter Trinity workspace. See
 [`JASON-SIMULATION-2026-07-22.md`](JASON-SIMULATION-2026-07-22.md) for the
 boundary-by-boundary evidence and clean Winter Trinity after-state.
 
@@ -158,5 +159,6 @@ unset POSTMAN_REGION
 The wrapper invokes
 `@postman-cse/onboarding-resolve-service-token@2.0.4`, never passes the PMAK as
 a command-line argument, prints only the team ID, and discards the short-lived
-token. A personal PMAK fails with HTTP 401, which is the expected result for the
-key currently available on this Mac.
+token. A personal PMAK fails with HTTP 401. The replacement service-account
+PMAK passed this check for team `13569807`; it still needs explicit Winter
+Trinity workspace access before onboarding can write assets.

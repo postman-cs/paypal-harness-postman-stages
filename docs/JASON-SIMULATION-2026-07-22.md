@@ -8,15 +8,16 @@ Harness pipeline: `PayPal_Jason_Orders_DropIn_Proof`
 ## Result
 
 The rehearsal exercised the production-shaped route from a fresh public GitHub
-clone through Harness and into Postman. It reached the Postman write boundary,
-then failed closed because the supplied credential is a personal PMAK. The
-regular Postman-CS onboarding core requires a service-account PMAK that can mint
-a short-lived service token (or an already minted service-account access token)
-for asset operations.
+clone through Harness and into Postman. Sequence 4 failed closed because the
+supplied credential was a personal PMAK. A replacement system service-account
+PMAK passed the Mac preflight, was installed as Harness secret
+`paypal_postman_service_account_pmak`, and minted successfully in sequence 5.
+That run then failed closed before any write because the service account was not
+assigned to the target Winter Trinity workspace.
 
 No Postman asset was created or changed. A second successful run and the final
-asset-ID idempotency comparison therefore remain blocked on the credential,
-not on GitHub, Harness, the PayPal spec, or the stage implementation.
+asset-ID idempotency comparison therefore remain blocked on workspace RBAC,
+not token minting, GitHub, Harness, the PayPal spec, or the stage implementation.
 
 ## Jason-path setup
 
@@ -73,6 +74,7 @@ were used to harden the final stage:
 | 2 | `LORw4lznQUmzd3_szWe-gQ` | Harness could not preload the nested composite action; the stage was flattened to the regular bootstrap core. |
 | 3 | `OUEzqVybQuGYjdQ50lszRg` | Harness's Action adapter could not execute the action's Node 24 runtime; the stage switched to the checksum-verified self-contained Postman-CS binary. |
 | 4 | `OLoAYo9lQYqvv6hEEqhXHQ` | All integration boundaries passed through Postman CLI login; the personal credential then failed the required service-token mint. |
+| 5 | `ntzUYH0pSXyW9QZbU0QlHQ` | Service-account mint and identity preflight passed for team `13569807`; the first workspace-specification read returned HTTP 403 because the identity was not assigned to Winter Trinity. |
 
 ## Before/after state
 
@@ -92,10 +94,10 @@ workspace without duplicate identities.
 
 ## Completion gate
 
-Create Harness secret `paypal_postman_service_account_pmak` from a PMAK
-generated for a Postman service account that has access to the owning team and
-target workspace. Then run the same stage twice with identical inputs and
-retain:
+Assign the verified service account to Winter Trinity workspace
+`d692f930-e186-44e1-bffa-2971bf69ddf4` with at least Editor access. The Harness
+secret already exists and the PMAK has passed token minting. Then run the same
+stage twice with identical inputs and retain:
 
 - the first-run workspace, spec, and collection IDs;
 - the second-run IDs and operation receipts;

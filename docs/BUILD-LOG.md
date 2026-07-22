@@ -100,8 +100,15 @@ The workspace remained unchanged. See
   preflight to the CLI stage, so a personal PMAK fails before quality-gate work.
 - Added a macOS Node 24 wrapper around the pinned Postman-CS npm CLI; it reports
   only the service-account team ID and discards the short-lived access token.
+- Validated the replacement PMAK on macOS and installed it as project-scoped
+  Harness secret `paypal_postman_service_account_pmak` without logging it.
+- Harness sequence 5 (`ntzUYH0pSXyW9QZbU0QlHQ`) minted the short-lived token,
+  resolved service-account team `13569807`, and passed every boundary through
+  workspace selection. The first read of Winter Trinity specifications failed
+  with HTTP 403 because the service account is not assigned to workspace
+  `d692f930-e186-44e1-bffa-2971bf69ddf4`; no write was attempted.
 - Added a pre-write backend guard to runtime Insights linking. The current
   Akita acknowledgement path requires a user identity and therefore does not
   meet PayPal's service-account-only policy.
-- Expanded the suite to 32 passing tests and added the production technical
+- Expanded the suite to 34 passing tests and added the production technical
   checklist in `docs/CUSTOMER-TECHNICAL-CONSIDERATIONS.md`.
