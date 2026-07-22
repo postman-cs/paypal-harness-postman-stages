@@ -1,0 +1,157 @@
+# EchoAtlas Studio sandbox only. This pipeline validates the immutable wrapper
+# against PayPal's public Orders v2 contract before any credentialed collection
+# run. No production onboarding or repository write is enabled here.
+pipeline:
+  name: PayPal Public Orders Postman Sandbox
+  identifier: PayPal_Public_Orders_Postman_Sandbox
+  orgIdentifier: default
+  projectIdentifier: default_project
+  tags:
+    customer: paypal
+    owner: postman-cse
+    source: developer-paypal
+  variables:
+    - name: operation
+      type: String
+      required: true
+      value: <+input>.allowedValues(validate,cli-test)
+    - name: winter_trinity_workspace_id
+      type: String
+      required: false
+      value: <+input>
+    - name: cli_smoke_collection_id
+      type: String
+      required: false
+      value: <+input>
+    - name: cli_contract_collection_id
+      type: String
+      required: false
+      value: <+input>
+    - name: cli_environment_id
+      type: String
+      required: false
+      value: <+input>
+  stages:
+    - stage:
+        name: PayPal public Orders contract
+        identifier: paypal_public_orders_contract
+        type: CI
+        spec:
+          cloneCodebase: false
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Prepare pinned PayPal Orders v2 contract
+                  identifier: prepare_paypal_orders_contract
+                  spec:
+                    shell: Sh
+                    command: |-
+                      set -eu
+                      mkdir -p .postman-template harness/specs scripts
+
+                      # The documentation is public at:
+                      # https://developer.paypal.com/docs/api/orders/v2/
+                      # Pin the official PayPal OpenAPI artifact for reproducibility.
+                      curl -fsSL \
+                        https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json \
+                        -o harness/specs/paypal-orders-v2.openapi.json
+                      printf '%s  %s\n' \
+                        14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6 \
+                        harness/specs/paypal-orders-v2.openapi.json | sha256sum -c -
+
+                      cat > scripts/paypal-orders-sandbox-server.sh <<'SCRIPT'
+                      #!/bin/sh
+                      exec python3 -m http.server 4010 --bind 127.0.0.1
+                      SCRIPT
+                      chmod +x scripts/paypal-orders-sandbox-server.sh
+
+                      cat > .postman-template/onboarding.yml <<'CONFIG'
+                      version: 1
+                      spec:
+                        path: harness/specs/paypal-orders-v2.openapi.json
+                      service:
+                        name: paypal-orders-v2-public-sandbox
+                      tdd:
+                        enabled: true
+                        workspace:
+                          name: Winter Trinity
+                        baseUrl: http://127.0.0.1:4010
+                        healthUrl: http://127.0.0.1:4010/
+                        startCommand: ./scripts/paypal-orders-sandbox-server.sh
+                        timeoutSeconds: 30
+                        repair:
+                          enabled: false
+                          provider: openai-responses
+                          maxAttempts: 1
+                          allowedWritePaths:
+                            - sandbox-fixtures/**
+                          allowedReadPaths:
+                            - harness/specs/**
+                            - scripts/**
+                      CONFIG
+
+              - step:
+                  type: Run
+                  name: Provision signed Postman CLI for test runs
+                  identifier: provision_postman_cli
+                  when:
+                    stageStatus: Success
+                    condition: <+pipeline.variables.operation> == "cli-test"
+                  spec:
+                    shell: Sh
+                    command: |-
+                      set -eu
+                      npm install --global postman-cli@1.44.0
+                      postman --version
+
+              - step:
+                  type: Action
+                  name: Validate public PayPal Orders setup
+                  identifier: validate_public_paypal_orders_setup
+                  when:
+                    stageStatus: Success
+                    condition: <+pipeline.variables.operation> == "validate"
+                  spec:
+                    uses: danielshively-source/paypal-harness-pipeline@351c84661c0fc619f36af94ede3c953eca735d2b
+                    with:
+                      operation: validate
+                      project-name: paypal-orders-v2-public-sandbox
+                      onboarding-config-path: .postman-template/onboarding.yml
+                      spec-path: harness/specs/paypal-orders-v2.openapi.json
+                      config-write-mode: none
+                      repo-write-mode: none
+                    env:
+                      GITHUB_TOKEN: <+secrets.getValue("paypal_github_token")>
+
+              - step:
+                  type: Action
+                  name: Run Winter Trinity CLI tests
+                  identifier: run_winter_trinity_cli_tests
+                  when:
+                    stageStatus: Success
+                    condition: <+pipeline.variables.operation> == "cli-test"
+                  spec:
+                    uses: danielshively-source/paypal-harness-pipeline@351c84661c0fc619f36af94ede3c953eca735d2b
+                    with:
+                      operation: cli-test
+                      project-name: paypal-orders-v2-public-sandbox
+                      onboarding-config-path: .postman-template/onboarding.yml
+                      spec-path: harness/specs/paypal-orders-v2.openapi.json
+                      test-workspace-name: Winter Trinity
+                      test-workspace-id: <+pipeline.variables.winter_trinity_workspace_id>
+                      cli-smoke-collection-id: <+pipeline.variables.cli_smoke_collection_id>
+                      cli-contract-collection-id: <+pipeline.variables.cli_contract_collection_id>
+                      cli-environment-id: <+pipeline.variables.cli_environment_id>
+                      cli-report-format: junit
+                      postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
+                      config-write-mode: none
+                      repo-write-mode: none
+                    env:
+                      GITHUB_TOKEN: <+secrets.getValue("paypal_github_token")>

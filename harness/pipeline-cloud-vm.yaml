@@ -75,9 +75,9 @@ pipeline:
                   name: Run pinned PayPal Postman action
                   identifier: run_pinned_paypal_postman_action
                   spec:
-                    # Publish this repository to the approved PayPal/Postman
-                    # location, then replace this marker with a full commit SHA.
-                    uses: PAYPAL_APPROVED_OWNER/paypal-harness-pipeline@FULL_40_CHARACTER_COMMIT_SHA
+                    # This immutable revision delegates to the Postman-CS
+                    # action SHAs recorded in postman-cs.lock.json.
+                    uses: danielshively-source/paypal-harness-pipeline@351c84661c0fc619f36af94ede3c953eca735d2b
                     with:
                       operation: <+pipeline.variables.operation>
                       project-name: <+pipeline.variables.project_name>
@@ -94,3 +94,7 @@ pipeline:
                       repo-write-mode: none
                       credential-preflight: enforce
                       enable-insights: "false"
+                    # Required while the wrapper repository is private. Use a
+                    # read-only fine-grained token scoped to this repository.
+                    env:
+                      GITHUB_TOKEN: <+secrets.getValue("paypal_github_token")>

@@ -13,6 +13,9 @@ repositories pinned to immutable commits.
 - `harness/pipeline-cloud-vm.yaml`: native Harness Action-step template.
 - `harness/pipeline-kubernetes.yaml`: Kubernetes/Drone fallback, subject to
   privileged-runner security approval.
+- `harness/pipeline-studio-sandbox.yaml`: EchoAtlas sandbox for the public
+  PayPal Orders v2 developer contract; `validate` is credential-free and
+  `cli-test` is separately locked to `Winter Trinity`.
 - `pnpm run check`: unit, secret-leak, dependency-pin, and template checks.
 
 No credential is stored here. The supplied Postman and Harness credentials are
@@ -27,8 +30,10 @@ pnpm run check
 
 ## Harness adoption
 
-1. Publish this repository to the customer-approved source-control location.
-2. Review and pin its full commit SHA in the selected Harness template.
+1. Mirror the private wrapper repository into the customer-approved
+   source-control location when PayPal takes ownership.
+2. Review the immutable wrapper revision already pinned in each Harness
+   template. Change it only through a reviewed commit.
 3. Replace the `PAYPAL_*` markers with customer-owned identifiers.
 4. Store credentials in Harness Secrets and reference only their identifiers.
 5. Start with `operation=validate`; it does not require a Postman credential.
@@ -52,7 +57,13 @@ See [architecture](docs/ARCHITECTURE.md) and the [working-session checklist](doc
 
 ## Current known boundary
 
-The action repository is locally built but not yet published, so the Harness
-template intentionally contains an invalid `FULL_40_CHARACTER_COMMIT_SHA`
-marker. Publishing, selecting the PayPal SCM location, and activating a live
-Harness pipeline require customer confirmation and human approval.
+The wrapper is published privately at
+`danielshively-source/paypal-harness-pipeline` and the Harness templates pin
+commit `351c84661c0fc619f36af94ede3c953eca735d2b`. Harness therefore needs a
+read-only fine-grained GitHub token stored as `paypal_github_token` while the
+repository remains private. Credentialed testing is still blocked until the
+Postman API key can see the exact `Winter Trinity` organization workspace and
+its approved collection IDs.
+
+See [Harness sandbox evidence](docs/HARNESS-SANDBOX-EVIDENCE.md) for the live
+pipeline review, public-spec provenance, and remaining human gates.

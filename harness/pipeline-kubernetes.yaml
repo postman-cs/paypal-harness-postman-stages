@@ -37,7 +37,7 @@ pipeline:
                     image: plugins/github-actions
                     privileged: true
                     settings:
-                      uses: PAYPAL_APPROVED_OWNER/paypal-harness-pipeline@FULL_40_CHARACTER_COMMIT_SHA
+                      uses: danielshively-source/paypal-harness-pipeline@351c84661c0fc619f36af94ede3c953eca735d2b
                       with:
                         operation: validate
                         project-name: PAYPAL_FIRST_SERVICE
