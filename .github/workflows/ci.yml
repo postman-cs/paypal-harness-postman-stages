@@ -1,4 +1,4 @@
-name: PayPal Harness wrapper verification
+name: PayPal Harness Postman stage verification
 
 on:
   pull_request:
