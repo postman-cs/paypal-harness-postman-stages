@@ -1,68 +1,88 @@
 # PayPal Harness working-session contract
 
-## Proposed first pass
+## Proposed first pass for Jason and Varun
 
-Use one non-production service and begin with `operation=validate`. If setup
-validation is green, run `cli-test` and then `contract-test` against the same
-immutable service commit and authoritative OpenAPI specification. Every live
-wrapper test targets the exact `Winter Trinity` workspace. The Orders API is a
-candidate, not a confirmed selection.
+Use PayPal's public Orders v2 API in the exact Winter Trinity workspace. Add two
+independent stages to one existing non-production Harness pipeline:
 
-## Decisions required from Jason DeLeau and Varun Gnanaselvan
+1. `spec-to-postman-onboarding.yaml` — regular Postman onboarding.
+2. `postman-cli-quality-gate.yaml` — Postman CLI lint/tests/JUnit.
 
-- Confirm their actual roles and identify the engineering owner, Harness
-  pipeline owner, secrets owner, and security approver.
-- Confirm Harness account, organization, project, pipeline, runner type, and
-  whether the build uses Harness Cloud, VM/local, or Kubernetes infrastructure.
-- Confirm source-control provider, service repository, default branch,
-  connector, PR event metadata, and branch-protection rules. GitHub is not yet
-  a validated PayPal source-control assumption.
-- Select the first service and authoritative OpenAPI path; identify its runtime
-  start command, health URL, base URL, and representative success/failure cases.
-- Confirm Node 24 support for `postman-onboarding-tdd`. If unavailable, agree on
-  a supported runner upgrade before attempting the contract-test operation.
-- Confirm the signed Postman CLI is pre-provisioned on the runner and record its
-  reviewed version. The pipeline intentionally does not install it at runtime.
-- Confirm the exact `Winter Trinity` organization-workspace ID. The wrapper can
-  resolve by exact name, but supplying the ID prevents ambiguity and provides a
-  second identity check.
-- Select the Winter Trinity smoke/contract collection IDs and optional
-  environment ID. Confirm whether the assets support JUnit (`junit`) or require
-  CLI-only reporting, including v3 YAML collections (`cli-only`).
-- Confirm network egress/allowlist for GitHub and Postman, or the approved
-  internal mirror strategy. The action must still resolve to the reviewed
-  Postman-CS commits in `postman-cs.lock.json`.
-- Create Harness Secret identifiers for Postman and GitHub credentials and name
-  rotation/revocation owners. Do not share raw credential values in the session.
-- Decide permanent versus ephemeral Postman workspace behavior, cleanup trigger,
-  retention, merge handling, and recovery owner.
-- Define the pass/fail evidence, failure policy, JUnit retention, approval gate,
-  rollback path, decision owner, and customer-confirmed date.
+This is not a TDD-preview demonstration. The regular onboarding action owns the
+spec/workspace/collection lifecycle; Postman CLI owns the quality gate. PayPal's
+existing governance and promotion stages remain downstream and authoritative.
+
+## Customer-confirmed problem and intended outcome
+
+- Deirdre Corley, product lead for PayPal's API management platform, wants a
+  unified API ecosystem and better Postman usage visibility.
+- A checked-in OAS 3 contract should update/generate the corresponding Postman
+  collection without manual UI work.
+- Postman assets should be exportable to a reviewable Git commit.
+- Contract checks should run through API/CLI in Harness and block drift before
+  PayPal's existing gates.
+- Runtime evidence should ultimately find implemented endpoints absent from the
+  authoritative spec, including complex app-to-spec relationships.
+- Jason DeLeau, an API platform engineering manager, wants an
+  engineer-verifiable implementation rather than a UI-only demo.
+
+Evidence: PayPal Gong `414844849311536128`, 2026-06-16. The 2026-06-25 meeting
+confirms Deirdre, Jason, and Varun attended, but its transcript is unavailable
+in Kepler and is used only for attendance.
+
+## Decisions required from Jason and Varun
+
+- Confirm the engineering owner, Harness pipeline owner, secrets owner,
+  security approver, rollback owner, and their own ownership split.
+- Select the existing Harness pipeline and runner. Confirm Linux/AMD64, Node 24,
+  and a reviewed pre-provisioned Postman CLI version.
+- Confirm source-control provider, repository, default branch, connector, PR
+  variables, and branch protections. GitHub is not yet a validated PayPal
+  source-control assumption for the private service.
+- Confirm the exact Winter Trinity organization-workspace ID and the approved
+  Orders smoke/contract collection IDs.
+- Confirm Postman/GitHub egress or an approved internal mirror. Customer action
+  stages still resolve directly to the reviewed Postman-CS commits.
+- Select the first private service after Orders: spec path, base URL, health
+  route, auth/test-data strategy, and representative pass/fail cases.
+- Define JUnit/artifact retention, failure policy, approval and rollback
+  behavior, production decision owner, and target go-live date.
+- Define the deployed-route inventory and normalization rules required for
+  rogue-endpoint comparison.
 
 ## Demonstration sequence
 
-1. Show `pnpm run check` green in this wrapper repository.
-2. Import the template appropriate to the confirmed runner.
-3. Replace every `PAYPAL_*` marker and pin this wrapper to a full commit SHA.
-4. Run `validate` without Postman secrets; save its validation summary.
-5. Verify `postman --version`, then resolve credentials only through Harness
-   Secrets. Never paste a PMAK into pipeline YAML or a command transcript.
-6. Resolve the organization-owned workspace via `postman search workspaces` and
-   demonstrate that the wrapper selected exact name `Winter Trinity` and the
-   approved ID.
-7. Run `cli-test` against the approved Winter Trinity collection IDs. Preserve
-   JUnit when the collection format supports it; otherwise preserve the CLI
-   transcript and exit result.
-8. Run one controlled failing `contract-test`, then correct the service/spec and
-   rerun green. Preserve spec-lint, contract, and failure evidence.
-9. Leave `onboard` and all write modes disabled until a named human approves the
-   target assets and mutation policy, and the transitive tagged references in
-   the locked onboarding action are remediated or explicitly accepted.
+1. Show `pnpm run check` green and review the four semantic stage files.
+2. Paste `spec-to-postman-onboarding.yaml` and
+   `postman-cli-quality-gate.yaml` into the selected existing pipeline.
+3. Show that onboarding calls
+   `postman-cs/postman-api-onboarding-action@d3d3776077fdcfa0b3e319e208dd963d18a0a0d9`
+   directly and makes no Git write.
+4. Create/reference Harness secret `paypal_postman_api_key`; never paste the
+   PMAK into YAML or a transcript.
+5. Provide the exact existing Winter Trinity workspace ID, set
+   `approve_postman_write=true`, and run regular Orders onboarding.
+6. Record generated/reused spec and collection IDs; rerun unchanged and verify
+   no duplicates.
+7. Show `postman --version`, exact workspace name/ID resolution, Orders spec
+   lint, approved collection execution, and JUnit in the CLI stage.
+8. Run the CLI stage twice unchanged, then demonstrate one controlled failing
+   contract assertion that blocks downstream promotion.
+9. Review `postman-to-git-sync.yaml` but do not run it until asset IDs are
+   approved; its maximum authority is an unpushed local commit.
+10. Review `runtime-route-discovery.yaml` as the input to rogue-endpoint work;
+    do not claim the comparison is complete.
+
+## Eric's completion gate
+
+Leave with four explicit answers: what business problem PayPal is solving, who
+owns/care about it, how success is measured, and the target production go-live
+date. The first three have a research-backed proposal in
+`docs/PAYPAL-REQUIREMENTS.md`; the date and final owner remain human decisions.
 
 ## Acceptance boundary
 
-The working session is successful when PayPal can trigger the wrapper from its
-own Harness project, the wrapper demonstrably calls the locked Postman-CS action
-revision, all credentialed tests are proven to target `Winter Trinity`, and the
-resulting CLI/JUnit evidence is visible without exposing a secret.
-Production execution and task completion remain human decisions.
+The working session succeeds when Jason or Varun can point to the selected
+existing pipeline, verify the direct regular-onboarding action pin, see a stable
+Orders onboarding rerun and CLI/JUnit result in Winter Trinity, and name the
+private-service owner and next date. A sandbox run is not production approval.

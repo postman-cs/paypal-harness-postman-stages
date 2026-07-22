@@ -77,7 +77,7 @@ pipeline:
                   spec:
                     # This immutable revision delegates to the Postman-CS
                     # action SHAs recorded in postman-cs.lock.json.
-                    uses: danielshively-source/paypal-harness-pipeline@351c84661c0fc619f36af94ede3c953eca735d2b
+                    uses: danielshively-source/paypal-harness-pipeline@e6b290c034aa1cc8a144578041fbd652b1f4f09f
                     with:
                       operation: <+pipeline.variables.operation>
                       project-name: <+pipeline.variables.project_name>

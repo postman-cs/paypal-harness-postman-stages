@@ -37,7 +37,7 @@ pipeline:
                     image: plugins/github-actions
                     privileged: true
                     settings:
-                      uses: danielshively-source/paypal-harness-pipeline@351c84661c0fc619f36af94ede3c953eca735d2b
+                      uses: danielshively-source/paypal-harness-pipeline@e6b290c034aa1cc8a144578041fbd652b1f4f09f
                       with:
                         operation: validate
                         project-name: PAYPAL_FIRST_SERVICE

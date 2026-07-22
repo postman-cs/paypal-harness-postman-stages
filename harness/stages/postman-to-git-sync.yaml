@@ -1,0 +1,103 @@
+# PAYPAL DROP-IN — Postman -> checked-out Git worktree.
+# The action may create a local commit, but cannot push it. PayPal's existing
+# review/promotion machinery remains the only authority that can publish it.
+stage:
+  name: Postman - Sync assets to Git
+  identifier: postman_sync_assets_to_git
+  type: CI
+  variables:
+    - name: project_name
+      type: String
+      required: true
+      value: <+input>
+    - name: workspace_id
+      type: String
+      required: true
+      value: <+input>
+    - name: baseline_collection_id
+      type: String
+      required: true
+      value: <+input>
+    - name: smoke_collection_id
+      type: String
+      required: true
+      value: <+input>
+    - name: contract_collection_id
+      type: String
+      required: true
+      value: <+input>
+    - name: spec_id
+      type: String
+      required: true
+      value: <+input>
+    - name: spec_path
+      type: String
+      required: true
+      value: <+input>
+    - name: canonical_branch
+      type: String
+      required: true
+      value: <+input>.default(main)
+    - name: approve_local_commit
+      type: String
+      required: true
+      value: <+input>.allowedValues(false,true)
+  spec:
+    cloneCodebase: true
+    platform:
+      os: Linux
+      arch: Amd64
+    runtime:
+      type: Cloud
+      spec: {}
+    execution:
+      steps:
+        - step:
+            type: Run
+            name: Enforce local commit approval
+            identifier: enforce_local_commit_approval
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                [ '<+stage.variables.approve_local_commit>' = 'true' ] || {
+                  echo 'Set approve_local_commit=true after reviewing the target asset IDs.' >&2
+                  exit 2
+                }
+
+        - step:
+            type: Action
+            name: Export through Postman-CS
+            identifier: export_through_postman_cs
+            spec:
+              uses: postman-cs/postman-repo-sync-action@3d3f93f3360d6ef1a435f0a66be962c5b6d06eaf
+              with:
+                project-name: <+stage.variables.project_name>
+                workspace-id: <+stage.variables.workspace_id>
+                baseline-collection-id: <+stage.variables.baseline_collection_id>
+                smoke-collection-id: <+stage.variables.smoke_collection_id>
+                contract-collection-id: <+stage.variables.contract_collection_id>
+                spec-id: <+stage.variables.spec_id>
+                spec-path: <+stage.variables.spec_path>
+                monitor-type: cli
+                generate-ci-workflow: "false"
+                artifact-dir: postman
+                repo-write-mode: commit-only
+                branch-strategy: publish-gate
+                canonical-branch: <+stage.variables.canonical_branch>
+                credential-preflight: enforce
+                postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
+                postman-region: us
+
+        - step:
+            type: Run
+            name: Expose human review diff
+            identifier: expose_human_review_diff
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                echo 'POSTMAN_HARNESS event=stage_complete stage=postman-to-git-sync writePolicy=commit-only'
+                echo 'POSTMAN_HARNESS dependency=postman-cs/postman-repo-sync-action ref=3d3f93f3360d6ef1a435f0a66be962c5b6d06eaf'
+                git status --short
+                git show --stat --oneline --decorate HEAD

@@ -1,0 +1,100 @@
+# PAYPAL DROP-IN — link an already discovered runtime service to Postman.
+# This is the evidence source for a later implemented-route-versus-spec gate;
+# it does not claim that rogue-endpoint comparison is complete by itself.
+stage:
+  name: Postman - Discover runtime routes
+  identifier: postman_discover_runtime_routes
+  type: CI
+  variables:
+    - name: project_name
+      type: String
+      required: true
+      value: <+input>
+    - name: workspace_id
+      type: String
+      required: true
+      value: <+input>
+    - name: environment_id
+      type: String
+      required: true
+      value: <+input>
+    - name: system_environment_id
+      type: String
+      required: true
+      value: <+input>
+    - name: cluster_name
+      type: String
+      required: true
+      value: <+input>
+    - name: repo_url
+      type: String
+      required: true
+      value: <+input>
+    - name: canonical_branch
+      type: String
+      required: true
+      value: <+input>.default(main)
+    - name: approve_runtime_link
+      type: String
+      required: true
+      value: <+input>.allowedValues(false,true)
+  spec:
+    cloneCodebase: true
+    platform:
+      os: Linux
+      arch: Amd64
+    runtime:
+      type: Cloud
+      spec: {}
+    execution:
+      steps:
+        - step:
+            type: Run
+            name: Enforce runtime link approval
+            identifier: enforce_runtime_link_approval
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                [ '<+stage.variables.approve_runtime_link>' = 'true' ] || {
+                  echo 'Set approve_runtime_link=true after verifying service, cluster, workspace, and environment identity.' >&2
+                  exit 2
+                }
+
+        - step:
+            type: Action
+            name: Link through Postman-CS Insights
+            identifier: link_through_postman_cs_insights
+            spec:
+              uses: postman-cs/postman-insights-onboarding-action@488e9711688c4aa5358d11a7c12716ee0e97965a
+              with:
+                project-name: <+stage.variables.project_name>
+                workspace-id: <+stage.variables.workspace_id>
+                environment-id: <+stage.variables.environment_id>
+                system-environment-id: <+stage.variables.system_environment_id>
+                cluster-name: <+stage.variables.cluster_name>
+                repo-url: <+stage.variables.repo_url>
+                postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
+                postman-access-token: <+secrets.getValue("paypal_postman_user_access_token")>
+                postman-team-id: <+secrets.getValue("paypal_postman_team_id")>
+                github-token: <+secrets.getValue("paypal_service_repo_github_token")>
+                create-api-key: "false"
+                credential-preflight: enforce
+                service-not-found-policy: fail
+                branch-strategy: publish-gate
+                canonical-branch: <+stage.variables.canonical_branch>
+                postman-region: us
+
+        - step:
+            type: Run
+            name: Record Insights link evidence
+            identifier: record_insights_link_evidence
+            when:
+              stageStatus: All
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                echo 'POSTMAN_HARNESS event=stage_complete stage=runtime-route-discovery writePolicy=approved-link-only'
+                echo 'POSTMAN_HARNESS dependency=postman-cs/postman-insights-onboarding-action ref=488e9711688c4aa5358d11a7c12716ee0e97965a'
+                echo 'POSTMAN_HARNESS limitation=route-inventory-comparison-remains-a-separate-customer-discovery-gate'

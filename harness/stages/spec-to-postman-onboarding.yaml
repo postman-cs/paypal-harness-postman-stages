@@ -1,0 +1,118 @@
+# PAYPAL DROP-IN — GitHub spec -> regular Postman API onboarding.
+# The action is fetched directly from postman-cs at an immutable top-level SHA.
+# PayPal supplies an existing workspace ID to prevent duplicate workspaces.
+stage:
+  name: Postman - Spec to Postman onboarding
+  identifier: postman_spec_to_postman_onboarding
+  type: CI
+  variables:
+    - name: project_name
+      type: String
+      required: true
+      value: <+input>.default(paypal-orders)
+    - name: spec_url
+      type: String
+      required: true
+      value: <+input>.default(https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json)
+    - name: workspace_id
+      type: String
+      required: true
+      value: <+input>
+    - name: spec_id
+      type: String
+      required: false
+      value: <+input>
+    - name: baseline_collection_id
+      type: String
+      required: false
+      value: <+input>
+    - name: smoke_collection_id
+      type: String
+      required: false
+      value: <+input>
+    - name: contract_collection_id
+      type: String
+      required: false
+      value: <+input>
+    - name: approve_postman_write
+      type: String
+      required: true
+      value: <+input>.allowedValues(false,true)
+  spec:
+    cloneCodebase: true
+    platform:
+      os: Linux
+      arch: Amd64
+    runtime:
+      type: Cloud
+      spec: {}
+    execution:
+      steps:
+        - step:
+            type: Run
+            name: Verify immutable PayPal Orders source
+            identifier: verify_immutable_paypal_orders_source
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                test '<+stage.variables.spec_url>' = 'https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json'
+                mkdir -p .postman-stage/openapi
+                curl --fail --silent --show-error --location '<+stage.variables.spec_url>' \
+                  --output .postman-stage/openapi/checkout_orders_v2.json
+                printf '%s  %s\n' \
+                  14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6 \
+                  .postman-stage/openapi/checkout_orders_v2.json | sha256sum --check --status
+
+        - step:
+            type: Run
+            name: Enforce explicit onboarding approval
+            identifier: enforce_onboarding_approval
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                [ '<+stage.variables.approve_postman_write>' = 'true' ] || {
+                  echo 'Set approve_postman_write=true after reviewing the Winter Trinity workspace and immutable spec.' >&2
+                  exit 2
+                }
+                [ -n '<+stage.variables.workspace_id>' ] || {
+                  echo 'An existing target workspace ID is mandatory.' >&2
+                  exit 2
+                }
+
+        - step:
+            type: Action
+            name: Run regular Postman-CS onboarding
+            identifier: run_regular_postman_cs_onboarding
+            spec:
+              uses: postman-cs/postman-api-onboarding-action@d3d3776077fdcfa0b3e319e208dd963d18a0a0d9
+              with:
+                project-name: <+stage.variables.project_name>
+                spec-url: <+stage.variables.spec_url>
+                workspace-id: <+stage.variables.workspace_id>
+                spec-id: <+stage.variables.spec_id>
+                baseline-collection-id: <+stage.variables.baseline_collection_id>
+                smoke-collection-id: <+stage.variables.smoke_collection_id>
+                contract-collection-id: <+stage.variables.contract_collection_id>
+                collection-sync-mode: refresh
+                spec-sync-mode: update
+                generate-ci-workflow: "false"
+                repo-write-mode: none
+                credential-preflight: enforce
+                enable-insights: "false"
+                skip-built-in-tests: "true"
+                postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
+                postman-region: us
+
+        - step:
+            type: Run
+            name: Record onboarding evidence
+            identifier: record_onboarding_evidence
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                echo 'POSTMAN_HARNESS event=stage_complete stage=spec-to-postman-onboarding writePolicy=approved-postman-upsert+git-none'
+                echo 'POSTMAN_HARNESS dependency=postman-cs/postman-api-onboarding-action ref=d3d3776077fdcfa0b3e319e208dd963d18a0a0d9'
+                echo 'POSTMAN_HARNESS idempotency=existing-workspace+refresh-collections+update-spec'

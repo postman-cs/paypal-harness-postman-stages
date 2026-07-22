@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "dependencies": {
+    "postman-cs/postman-insights-onboarding-action": {
+      "repository": "https://github.com/postman-cs/postman-insights-onboarding-action",
+      "commit": "488e9711688c4aa5358d11a7c12716ee0e97965a",
+      "purpose": "Link an already discovered runtime service to its Postman workspace, environment, and repository."
+    },
     "postman-cs/postman-api-onboarding-action": {
       "repository": "https://github.com/postman-cs/postman-api-onboarding-action",
       "commit": "d3d3776077fdcfa0b3e319e208dd963d18a0a0d9",
@@ -10,7 +15,11 @@
       "repository": "https://github.com/postman-cs/postman-onboarding-tdd",
       "commit": "0647a2ab357ba10c34ededf553ec0e64f0a67e0f",
       "purpose": "Validate setup or run PR-scoped spec-versus-implementation contract tests."
+    },
+    "postman-cs/postman-repo-sync-action": {
+      "repository": "https://github.com/postman-cs/postman-repo-sync-action",
+      "commit": "3d3f93f3360d6ef1a435f0a66be962c5b6d06eaf",
+      "purpose": "Materialize Postman assets in the checked-out repository without an automatic push."
     }
   }
 }
-

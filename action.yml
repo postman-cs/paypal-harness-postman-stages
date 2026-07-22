@@ -372,6 +372,22 @@ runs:
         repo-write-mode: ${{ inputs.repo-write-mode }}
         enable-insights: ${{ inputs.enable-insights }}
 
+    - id: collect_contract_junit
+      if: ${{ always() && inputs.operation == 'contract-test' && steps.contract_test.outputs.junit-path != '' }}
+      name: Preserve contract-test JUnit with the deterministic build evidence
+      shell: bash
+      env:
+        SOURCE_JUNIT: ${{ steps.contract_test.outputs.junit-path }}
+        REPORT_DIRECTORY: ${{ inputs.cli-report-directory }}
+      run: |
+        set -euo pipefail
+        if [ ! -f "$SOURCE_JUNIT" ]; then
+          echo "::warning::The contract-test action reported a JUnit path that does not exist: $SOURCE_JUNIT"
+          exit 0
+        fi
+        mkdir -p "$REPORT_DIRECTORY"
+        cp "$SOURCE_JUNIT" "$REPORT_DIRECTORY/contract-test.xml"
+
     - id: cli_logout
       if: ${{ always() && (inputs.operation == 'cli-test' || inputs.operation == 'contract-test') }}
       name: Remove Postman CLI credentials from the runner

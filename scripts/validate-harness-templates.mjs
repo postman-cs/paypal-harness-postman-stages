@@ -1,18 +1,30 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parsePostmanUses, verifySupplyChain } from './verify-supply-chain.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const wrapperPin = 'danielshively-source/paypal-harness-pipeline@351c84661c0fc619f36af94ede3c953eca735d2b';
-const templates = [
+const lock = JSON.parse(readFileSync(resolve(root, 'postman-cs.lock.json'), 'utf8'));
+const wrapperPin = 'danielshively-source/paypal-harness-pipeline@e6b290c034aa1cc8a144578041fbd652b1f4f09f';
+const wrapperTemplates = [
   'harness/pipeline-cloud-vm.yaml',
   'harness/pipeline-kubernetes.yaml',
   'harness/pipeline-studio-sandbox.yaml',
 ];
+const stageTemplates = [
+  'harness/stages/spec-to-postman-onboarding.yaml',
+  'harness/stages/postman-cli-quality-gate.yaml',
+  'harness/stages/postman-to-git-sync.yaml',
+  'harness/stages/runtime-route-discovery.yaml',
+];
+const expectedStageActions = new Map([
+  ['harness/stages/spec-to-postman-onboarding.yaml', 'postman-cs/postman-api-onboarding-action'],
+  ['harness/stages/postman-to-git-sync.yaml', 'postman-cs/postman-repo-sync-action'],
+  ['harness/stages/runtime-route-discovery.yaml', 'postman-cs/postman-insights-onboarding-action'],
+]);
 let failed = false;
 
-for (const relative of templates) {
-  const source = readFileSync(resolve(root, relative), 'utf8');
+function checkSecretsAndMutableRefs(relative, source) {
   const checks = [
     [/PMAK-[A-Za-z0-9_-]+/, 'contains a literal Postman API key'],
     [/pat\.[A-Za-z0-9._-]+/, 'contains a literal Harness token'],
@@ -24,11 +36,58 @@ for (const relative of templates) {
       failed = true;
     }
   }
+}
+
+for (const relative of wrapperTemplates) {
+  const source = readFileSync(resolve(root, relative), 'utf8');
+  checkSecretsAndMutableRefs(relative, source);
   if (!source.includes(wrapperPin)) {
     console.error(`ERROR: ${relative} must use the approved immutable wrapper commit.`);
     failed = true;
   }
 }
 
+for (const relative of stageTemplates) {
+  const source = readFileSync(resolve(root, relative), 'utf8');
+  checkSecretsAndMutableRefs(relative, source);
+  if (!/^stage:$/m.test(source) || /^pipeline:$/m.test(source)) {
+    console.error(`ERROR: ${relative} must contain exactly one drop-in stage, not a pipeline.`);
+    failed = true;
+  }
+  if (source.includes('danielshively-source/paypal-harness-pipeline@')) {
+    console.error(`ERROR: ${relative} must not depend on the personal wrapper repository.`);
+    failed = true;
+  }
+
+  const expected = expectedStageActions.get(relative);
+  const refs = parsePostmanUses(source);
+  if (expected && !refs.some(({ repository }) => repository === expected)) {
+    console.error(`ERROR: ${relative} must directly use ${expected}.`);
+    failed = true;
+  }
+  const supply = verifySupplyChain(source, lock, {
+    requireAllLocks: false,
+    requireReference: Boolean(expected),
+    sourceLabel: relative,
+  });
+  for (const error of supply.errors) {
+    console.error(`ERROR: ${relative}: ${error}`);
+    failed = true;
+  }
+}
+
+const onboarding = readFileSync(resolve(root, stageTemplates[0]), 'utf8');
+if (!/repo-write-mode: none/.test(onboarding) || !/skip-built-in-tests: "true"/.test(onboarding)) {
+  console.error('ERROR: onboarding must leave Git untouched and delegate tests to the CLI stage.');
+  failed = true;
+}
+const cli = readFileSync(resolve(root, stageTemplates[1]), 'utf8');
+for (const required of [/postman spec lint/, /postman collection run/, /type: JUnit/, /Winter Trinity/]) {
+  if (!required.test(cli)) {
+    console.error(`ERROR: CLI stage is missing ${required}.`);
+    failed = true;
+  }
+}
+
 if (failed) process.exitCode = 1;
-else console.log(`Validated ${templates.length} secret-free Harness template(s).`);
+else console.log(`Validated ${wrapperTemplates.length} wrapper pipeline(s) and ${stageTemplates.length} customer drop-in stage(s).`);

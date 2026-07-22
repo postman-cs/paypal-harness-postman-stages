@@ -1,69 +1,85 @@
-# PayPal Harness Pipeline
+# PayPal Harness + Postman pipeline stages
 
-This repository is the PayPal-facing CI entrypoint for Postman API onboarding
-and spec-versus-implementation contract testing. Its strict design rule is
-enforced in code: the wrapper delegates directly to approved Postman-CS action
-repositories pinned to immutable commits.
+This repository packages Postman capabilities as independent Harness stages
+that PayPal can insert into existing pipelines. The customer-facing path is the
+four-file catalog in [`harness/stages`](harness/stages/README.md); it calls
+reviewed `postman-cs` repositories directly and uses Postman CLI as the test
+execution plane.
 
-## What is ready
+## One stage per PayPal ask
 
-- `action.yml`: CLI-first wrapper operations `validate`, `cli-test`,
-  `contract-test`, and `onboard`.
-- `postman-cs.lock.json`: exact upstream repository/commit inventory.
-- `harness/pipeline-cloud-vm.yaml`: native Harness Action-step template.
-- `harness/pipeline-kubernetes.yaml`: Kubernetes/Drone fallback, subject to
-  privileged-runner security approval.
-- `harness/pipeline-studio-sandbox.yaml`: EchoAtlas sandbox for the public
-  PayPal Orders v2 developer contract; `validate` is credential-free and
-  `cli-test` is separately locked to `Winter Trinity`.
-- `pnpm run check`: unit, secret-leak, dependency-pin, and template checks.
+| Outcome | File |
+| --- | --- |
+| GitHub OAS contract → Postman workspace/spec/collections | `harness/stages/spec-to-postman-onboarding.yaml` |
+| Postman CLI lint + collection quality gate + JUnit | `harness/stages/postman-cli-quality-gate.yaml` |
+| Postman assets → reviewable local Git commit | `harness/stages/postman-to-git-sync.yaml` |
+| Runtime service discovery/linkage for rogue-route analysis | `harness/stages/runtime-route-discovery.yaml` |
 
-No credential is stored here. The supplied Postman and Harness credentials are
-deliberately absent from every file and must be rotated if their disclosure does
-not meet the owning teams' policy.
+The first pipeline for Jason tonight is **spec-to-Postman onboarding followed
+by the Postman CLI quality gate**. It uses the immutable public PayPal Orders v2
+contract, a supplied existing Winter Trinity workspace ID, the regular
+`postman-cs/postman-api-onboarding-action`, and approved collection IDs. It does
+not use the TDD preview action.
 
-## Local validation
+## Product stance
+
+- PayPal's Harness pipeline remains authoritative for triggers, checkout,
+  approvals, promotion, and deployment.
+- The regular Postman API onboarding action owns workspace/spec/collection
+  lifecycle.
+- Postman CLI owns lint and collection execution. The runner must provision a
+  reviewed CLI binary; runtime `curl | sh` installation is prohibited.
+- Postman-to-Git sync stops at `commit-only`; a PayPal human decides whether to
+  push or merge.
+- Insights linkage supplies runtime route evidence, but a full
+  implemented-route-versus-spec comparison is still an explicit implementation
+  gap rather than a claimed feature.
+
+## Direct Postman-CS dependency policy
+
+Every customer lifecycle stage uses `postman-cs/<repository>@<full commit SHA>`
+directly. No stage depends on the private personal wrapper. The approved commits
+are recorded in `postman-cs.lock.json`, and validation rejects mutable or
+unlocked top-level references.
+
+The reviewed regular onboarding composite itself currently includes
+version-tagged transitive Postman-CS references. Its top-level revision is
+immutable; complete transitive immutability remains a production-readiness
+item to remediate or explicitly accept.
+
+## Required Harness inputs
+
+- Secret `paypal_postman_api_key` for the Postman service account that can
+  access Winter Trinity.
+- Exact Winter Trinity workspace ID.
+- At least one approved smoke or contract collection ID.
+- A Linux AMD64 runner with Node 24 support and the signed Postman CLI.
+
+No credential is stored in this repository.
+
+## Validate locally
 
 ```sh
 pnpm run check
 ```
 
-## Harness adoption
+The suite checks stage shape, secret leakage, direct repository pins, write
+policies, CLI behavior, JUnit wiring, deterministic evidence, and the legacy
+wrapper contract.
 
-1. Mirror the private wrapper repository into the customer-approved
-   source-control location when PayPal takes ownership.
-2. Review the immutable wrapper revision already pinned in each Harness
-   template. Change it only through a reviewed commit.
-3. Replace the `PAYPAL_*` markers with customer-owned identifiers.
-4. Store credentials in Harness Secrets and reference only their identifiers.
-5. Start with `operation=validate`; it does not require a Postman credential.
-6. Pre-provision the signed Postman CLI on the runner. Runtime `curl | sh`
-   installation is intentionally rejected.
-7. Resolve the exact `Winter Trinity` organization workspace through
-   `postman search workspaces`; provide its ID as an additional identity lock
-   when known. Tests fail closed on a missing, mismatched, or ambiguous match.
-8. Use `operation=cli-test` for direct CLI collection runs. Use
-   `cli-report-format=junit` for Collection v2 HTTP test assets and
-   `cli-report-format=cli-only` for formats without JUnit support, including v3
-   YAML.
-9. Proceed to `contract-test` only after runner/runtime and first-service inputs
-   are confirmed. It lints the authoritative spec with the Postman CLI in
-   `Winter Trinity` before calling the pinned Postman-CS TDD action. Keep
-   repository/config write modes at `none`.
-10. Do not enable `onboard` for production until the transitive action-pin risk
-   documented in the architecture is remediated or accepted by PayPal.
+## Existing full-pipeline references
 
-See [architecture](docs/ARCHITECTURE.md) and the [working-session checklist](docs/WORKING-SESSION.md).
+`harness/pipeline-cloud-vm.yaml`, `harness/pipeline-kubernetes.yaml`, and
+`harness/pipeline-studio-sandbox.yaml` remain as additive reference pipelines.
+They use the private wrapper at immutable revision
+`e6b290c034aa1cc8a144578041fbd652b1f4f09f`; they are not the customer handoff
+path.
 
-## Current known boundary
+The last green wrapper repeatability proof is GitHub Actions run
+[`29946049355`](https://github.com/danielshively-source/paypal-harness-pipeline/actions/runs/29946049355).
+It proves the repository contract and deterministic read-only behavior, not a
+credentialed PayPal Postman round trip.
 
-The wrapper is published privately at
-`danielshively-source/paypal-harness-pipeline` and the Harness templates pin
-commit `351c84661c0fc619f36af94ede3c953eca735d2b`. Harness therefore needs a
-read-only fine-grained GitHub token stored as `paypal_github_token` while the
-repository remains private. Credentialed testing is still blocked until the
-Postman API key can see the exact `Winter Trinity` organization workspace and
-its approved collection IDs.
-
-See [Harness sandbox evidence](docs/HARNESS-SANDBOX-EVIDENCE.md) for the live
-pipeline review, public-spec provenance, and remaining human gates.
+See the [drop-in guide](docs/PAYPAL-DROP-IN.md), [requirements](docs/PAYPAL-REQUIREMENTS.md),
+[idempotency contract](docs/IDEMPOTENCY.md), [build log](docs/BUILD-LOG.md), and
+[working-session plan](docs/WORKING-SESSION.md).

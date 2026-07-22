@@ -33,6 +33,18 @@ test('rejects lock drift', () => {
   assert.match(result.errors.join('\n'), /does not match its locked commit/);
 });
 
+test('allows one stage to verify its own direct lock without consuming the entire catalog', () => {
+  const result = verifySupplyChain(
+    `uses: postman-cs/example@${'1'.repeat(40)}`,
+    { dependencies: {
+      'postman-cs/example': { commit: '1'.repeat(40) },
+      'postman-cs/another': { commit: '2'.repeat(40) },
+    } },
+    { requireAllLocks: false, sourceLabel: 'stage.yaml' },
+  );
+  assert.deepEqual(result.errors, []);
+});
+
 test('keeps onboarding behind an explicit human risk gate', () => {
   assert.match(action, /approve-onboarding-risk:[\s\S]*?default: "false"/);
   assert.match(action, /OPERATION" = "onboard"[\s\S]*?APPROVE_ONBOARDING_RISK" != "true"/);

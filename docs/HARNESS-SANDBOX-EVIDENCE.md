@@ -1,5 +1,29 @@
 # Harness sandbox evidence — 2026-07-22
 
+> Historical wrapper proof. The current PayPal handoff uses the four direct
+> customer stages under `harness/stages`, led by regular Postman onboarding and
+> the separate Postman CLI quality gate. No private-wrapper token is required by
+> those customer stages.
+
+## Current direct-stage proof
+
+Pipeline `PayPal_Jason_Orders_DropIn_Proof` was created in Harness account
+`MqRO9-E1S3KCCbydo-lPPg`, organization `default`, project `default_project` on
+2026-07-22 from the exact onboarding and CLI stage files in this repository.
+The create returned HTTP 200 with no YAML errors. Submitting the identical
+definition again returned HTTP 200, and server readback confirmed:
+
+- regular onboarding pin
+  `postman-cs/postman-api-onboarding-action@d3d3776077fdcfa0b3e319e208dd963d18a0a0d9`;
+- independent `postman_cli_quality_gate` stage;
+- no `postman-onboarding-tdd` action; and
+- no `danielshively-source/paypal-harness-pipeline` dependency.
+
+This proves the first two-stage customer definition is accepted and can be
+reapplied without creating another pipeline. It does not prove Postman asset
+idempotency because the approved Winter Trinity PMAK/workspace/collection IDs
+are not present at the connected Harness project scope; no execution occurred.
+
 ## Selected sandbox
 
 Use `PayPal_SpecHub_Postman_Automation` as the existing sandbox baseline. It is
@@ -12,6 +36,12 @@ The additive replacement template is
 `PayPal_Public_Orders_Postman_Sandbox`. It was saved as a separate pipeline in
 Harness on 2026-07-22; Harness readback reports `valid: true`, no YAML errors,
 and the `ci` and `pms` modules.
+
+The evidence-enabled revision was submitted twice through Harness's pipeline
+update API on 2026-07-22. Both updates returned HTTP 200; subsequent server
+readback remained `valid: true`, returned no YAML errors, and contained wrapper
+revision `e6b290c034aa1cc8a144578041fbd652b1f4f09f`. This confirms the sandbox
+definition itself can be applied repeatedly without creating another pipeline.
 
 ## Failed-execution review
 
@@ -54,7 +84,7 @@ generated config are valid before the private-action access gate.
 - Private wrapper repository:
   `https://github.com/danielshively-source/paypal-harness-pipeline`
 - Approved wrapper action revision:
-  `351c84661c0fc619f36af94ede3c953eca735d2b`
+  `e6b290c034aa1cc8a144578041fbd652b1f4f09f`
 - The action revision calls only the immutable Postman-CS action revisions in
   `postman-cs.lock.json`.
 - The pinned `postman-onboarding-tdd` action declares a Node 24 runtime. Confirm
@@ -81,3 +111,25 @@ generated config are valid before the private-action access gate.
    private-wrapper token. Only after `validate` passes, run
    `operation=cli-test` with the workspace and collection inputs. No production
    onboarding is authorized by this proof.
+
+Harness secret inventory was rechecked after the pipeline update. Neither
+`paypal_github_token` nor `paypal_postman_api_key` exists at the connected
+project scope, so no execution was attempted.
+
+## Repeatability evidence
+
+GitHub Actions run
+[`29946049355`](https://github.com/danielshively-source/paypal-harness-pipeline/actions/runs/29946049355)
+passed all three jobs on 2026-07-22:
+
+- the repository/action/template contract;
+- two public PayPal Orders setup validations with one identical fingerprint,
+  evidence path, and read-only mutation policy; and
+- two synthetic CLI runs that selected exact workspace `Winter Trinity`, ran
+  both collection gates, produced one identical fingerprint/evidence path, and
+  exposed no mutating Postman command surface.
+
+This proves deterministic wrapper behavior and a stable Harness handoff
+contract. It does **not** prove a credentialed round trip against PayPal's
+Postman team; the correct `Winter Trinity` credential and approved asset IDs
+remain required.
