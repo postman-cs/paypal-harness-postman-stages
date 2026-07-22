@@ -86,24 +86,57 @@ template:
                     exit 2
                   }
           - step:
-              type: Action
+              type: Run
               name: Run regular Postman-CS onboarding core
               identifier: run_regular_postman_cs_onboarding
               spec:
-                uses: postman-cs/postman-bootstrap-action@v2.10.5
-                with:
-                  project-name: <+stage.variables.project_name>
-                  spec-url: <+stage.variables.spec_url>
-                  workspace-id: <+stage.variables.workspace_id>
-                  spec-id: <+stage.variables.spec_id>
-                  baseline-collection-id: <+stage.variables.baseline_collection_id>
-                  smoke-collection-id: <+stage.variables.smoke_collection_id>
-                  contract-collection-id: <+stage.variables.contract_collection_id>
-                  collection-sync-mode: refresh
-                  spec-sync-mode: update
-                  credential-preflight: enforce
-                  postman-api-key: <+secrets.getValue("paypal_postman_api_key")>
-                  postman-region: us
+                shell: Sh
+                envVariables:
+                  POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_api_key")>
+                command: |-
+                  set -eu
+                  VERSION=2.10.5
+                  EXPECTED_SHA256=114a62ae96ec3cfa7e80f45c1192de8caf014b248bb4cb727f0584442a92c336
+                  RELEASE_URL="https://github.com/postman-cs/postman-bootstrap-action/releases/download/v${VERSION}/postman-bootstrap-${VERSION}-linux-x64"
+                  BIN=.postman-stage/bin/postman-bootstrap
+                  RESULT=.postman-stage/bootstrap-result.json
+                  DOTENV=.postman-stage/bootstrap.env
+                  mkdir -p .postman-stage/bin
+                  curl --fail --silent --show-error --location "$RELEASE_URL" --output "$BIN"
+                  printf '%s  %s\n' "$EXPECTED_SHA256" "$BIN" | sha256sum --check --status
+                  chmod 0755 "$BIN"
+
+                  set -- \
+                    --project-name "$project_name" \
+                    --spec-url "$spec_url" \
+                    --workspace-id "$workspace_id" \
+                    --collection-sync-mode refresh \
+                    --spec-sync-mode update \
+                    --credential-preflight enforce \
+                    --postman-region us
+                  case "${spec_id:-}" in ''|'<+'*) ;; *) set -- "$@" --spec-id "$spec_id" ;; esac
+                  case "${baseline_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --baseline-collection-id "$baseline_collection_id" ;; esac
+                  case "${smoke_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --smoke-collection-id "$smoke_collection_id" ;; esac
+                  case "${contract_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --contract-collection-id "$contract_collection_id" ;; esac
+
+                  "$BIN" "$@" --result-json "$RESULT" --dotenv-path "$DOTENV" > .postman-stage/bootstrap.stdout.json
+                  set -a
+                  . "$DOTENV"
+                  set +a
+                  [ "$POSTMAN_BOOTSTRAP_WORKSPACE_ID" = "$workspace_id" ]
+                  export workspace_id="$POSTMAN_BOOTSTRAP_WORKSPACE_ID"
+                  export spec_id="$POSTMAN_BOOTSTRAP_SPEC_ID"
+                  export baseline_collection_id="$POSTMAN_BOOTSTRAP_BASELINE_COLLECTION_ID"
+                  export smoke_collection_id="$POSTMAN_BOOTSTRAP_SMOKE_COLLECTION_ID"
+                  export contract_collection_id="$POSTMAN_BOOTSTRAP_CONTRACT_COLLECTION_ID"
+                  export collections_json="$POSTMAN_BOOTSTRAP_COLLECTIONS_JSON"
+                outputVariables:
+                  - name: workspace_id
+                  - name: spec_id
+                  - name: baseline_collection_id
+                  - name: smoke_collection_id
+                  - name: contract_collection_id
+                  - name: collections_json
           - step:
               type: Run
               name: Record onboarding evidence

@@ -56,9 +56,9 @@ in Kepler and is used only for attendance.
 2. Paste `spec-to-postman-onboarding.yaml` and
    `postman-cli-quality-gate.yaml` into the selected existing pipeline.
 3. Show that onboarding calls
-   `postman-cs/postman-bootstrap-action@v2.10.5` directly, verifies that tag
-   against the locked commit, and makes no Git write. This is the Node-based
-   core of regular onboarding, not the TDD preview.
+   the `postman-cs/postman-bootstrap-action` v2.10.5 release binary directly,
+   verifies its published SHA-256, and makes no Git write. This is the
+   self-contained CLI for regular onboarding, not the TDD preview.
 4. Create/reference Harness secret `paypal_postman_api_key`; never paste the
    PMAK into YAML or a transcript.
 5. Provide the exact existing Winter Trinity workspace ID, set

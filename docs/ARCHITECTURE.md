@@ -56,18 +56,16 @@ asset upsert, repo materialization, and Insights linkage.
 ## Supply-chain boundary
 
 Every customer lifecycle stage calls `postman-cs/...` directly. GitHub Actions
-use full commit SHAs. The Harness onboarding Action uses the regular onboarding
-bootstrap core at exact release tag `v2.10.5`, mapped to its resolved commit in
-`postman-cs.lock.json`, because the Harness adapter clones
-`refs/tags/<ref>`. Calling the Node-based core directly also avoids Harness's
-nested-composite preload failure. `pnpm run validate` rejects floating, missing,
-or mismatched top-level references.
+use full commit SHAs. Harness onboarding downloads the regular onboarding
+bootstrap CLI from exact release `v2.10.5`, verifies its published SHA-256, and
+maps the release tag to its resolved commit in `postman-cs.lock.json`. This
+avoids Harness's unsupported `node24` Action adapter. `pnpm run validate`
+rejects floating, missing, mismatched, or unverified top-level references.
 
 The broader regular onboarding composite contains release-tagged transitive
 Postman-CS actions. The Harness stage does not load that composite; it directly
-executes the bootstrap core. Its exact release tag is lock-mapped, but a Git tag
-can still be moved. PayPal can accept that bounded risk or use a reviewed
-internal mirror.
+executes the self-contained bootstrap CLI. Its exact release binary is
+digest-verified, so moving the Git tag cannot silently change the artifact.
 
 ## Secrets
 

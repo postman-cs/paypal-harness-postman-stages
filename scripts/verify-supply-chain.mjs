@@ -7,8 +7,9 @@ const action = readFileSync(resolve(root, 'action.yml'), 'utf8');
 const lock = JSON.parse(readFileSync(resolve(root, 'postman-cs.lock.json'), 'utf8'));
 
 export function parsePostmanUses(source) {
-  return [...source.matchAll(/^\s*uses:\s*(postman-cs\/[A-Za-z0-9._-]+)@([^\s#]+)\s*$/gm)]
-    .map((match) => ({ repository: match[1], ref: match[2] }));
+  const uses = [...source.matchAll(/^\s*uses:\s*(postman-cs\/[A-Za-z0-9._-]+)@([^\s#]+)\s*$/gm)];
+  const evidence = [...source.matchAll(/POSTMAN_HARNESS dependency=(postman-cs\/[A-Za-z0-9._-]+) ref=([^\s']+)/g)];
+  return [...uses, ...evidence].map((match) => ({ repository: match[1], ref: match[2] }));
 }
 
 export function verifySupplyChain(source, manifest, options = {}) {

@@ -43,7 +43,7 @@ export const DELIVERY_STAGES = Object.freeze([
       [
         'onboarding_collections_json',
         'String',
-        '<+pipeline.stages.postman_spec_to_postman_onboarding.spec.execution.steps.run_regular_postman_cs_onboarding.output.outputVariables."collections-json">',
+        '<+pipeline.stages.postman_spec_to_postman_onboarding.spec.execution.steps.run_regular_postman_cs_onboarding.output.outputVariables.collections_json>',
       ],
       ['environment_id', 'String', '<+input>'],
     ],
@@ -74,7 +74,9 @@ export function assertImmutablePostmanCsActions(stageSources) {
   let count = 0;
   for (const source of stageSources) {
     const uses = [...source.matchAll(/^\s*uses:\s*([^\s#]+)\s*$/gm)].map((match) => match[1]);
-    for (const reference of uses) {
+    const evidenceRefs = [...source.matchAll(/POSTMAN_HARNESS dependency=(postman-cs\/[A-Za-z0-9._-]+) ref=([^\s']+)/g)]
+      .map((match) => `${match[1]}@${match[2]}`);
+    for (const reference of [...uses, ...evidenceRefs]) {
       count += 1;
       const match = reference.match(/^(postman-cs\/[A-Za-z0-9._-]+)@(.+)$/);
       const isCommit = match && /^[a-f0-9]{40}$/.test(match[2]);
@@ -87,7 +89,7 @@ export function assertImmutablePostmanCsActions(stageSources) {
       throw new Error('Production stages cannot contain a personal wrapper or mutable action reference.');
     }
   }
-  if (count === 0) throw new Error('At least one direct immutable postman-cs Action reference is required.');
+  if (count === 0) throw new Error('At least one direct locked postman-cs runtime reference is required.');
   return count;
 }
 

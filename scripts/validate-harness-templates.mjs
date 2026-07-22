@@ -102,6 +102,16 @@ if (/repo-write-mode:|generate-ci-workflow:|enable-insights:|skip-built-in-tests
   console.error('ERROR: Harness onboarding must call only the bootstrap core; wrapper-only Git, Insights, and test inputs are forbidden.');
   failed = true;
 }
+for (const required of [
+  /github\.com\/postman-cs\/postman-bootstrap-action\/releases\/download\/v\$\{VERSION\}/,
+  /EXPECTED_SHA256=114a62ae96ec3cfa7e80f45c1192de8caf014b248bb4cb727f0584442a92c336/,
+  /outputVariables:[\s\S]*?- name: collections_json/,
+]) {
+  if (!required.test(onboarding)) {
+    console.error(`ERROR: onboarding is missing locked bootstrap binary control ${required}.`);
+    failed = true;
+  }
+}
 const cli = readFileSync(resolve(root, stageTemplates[1]), 'utf8');
 for (const required of [/postman spec lint/, /postman collection run/, /type: JUnit/, /Winter Trinity/]) {
   if (!required.test(cli)) {

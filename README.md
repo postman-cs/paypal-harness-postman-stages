@@ -22,16 +22,18 @@ personal wrapper. Start with the [Jason handoff](docs/JASON-QUICKSTART.md).
 The first pipeline for Jason tonight is **spec-to-Postman onboarding followed
 by the Postman CLI quality gate**. It uses the immutable public PayPal Orders v2
 contract, a supplied existing Winter Trinity workspace ID, the regular
-`postman-cs/postman-bootstrap-action` (the regular onboarding core), and
-approved collection IDs. It does not use the TDD preview action.
+the checksum-verified `postman-cs/postman-bootstrap-action` release binary (the
+regular onboarding core), and approved collection IDs. It does not use the TDD
+preview action.
 
 ## Product stance
 
 - PayPal's Harness pipeline remains authoritative for triggers, checkout,
   approvals, promotion, and deployment.
-- The Node-based bootstrap core of the regular Postman API onboarding action
-  owns workspace/spec/collection lifecycle. Calling it directly avoids
-  Harness's unsupported nested-composite preload path.
+- The self-contained bootstrap CLI from the regular Postman API onboarding
+  suite owns workspace/spec/collection lifecycle. Harness downloads the exact
+  Postman-CS release asset and verifies SHA-256 before execution; this avoids
+  Harness's unsupported `node24` Action adapter.
 - Postman CLI owns lint and collection execution. The runner must provision a
   reviewed CLI binary; runtime `curl | sh` installation is prohibited.
 - Postman-to-Git sync stops at `commit-only`; a PayPal human decides whether to
@@ -43,20 +45,21 @@ approved collection IDs. It does not use the TDD preview action.
 ## Direct Postman-CS dependency policy
 
 Every customer lifecycle stage calls `postman-cs/<repository>` directly. GitHub
-Actions use full commit SHAs. Harness Actions require Git tags, so onboarding
-uses the exact semantic release `v2.10.5`, whose resolved commit is recorded in
-`postman-cs.lock.json`. Validation rejects floating tags, mutable branches, and
-unlocked references. No stage depends on the private personal wrapper.
+Actions use full commit SHAs. Harness onboarding downloads the exact `v2.10.5`
+Postman-CS release binary and verifies its published SHA-256; its tag and commit
+are also recorded in `postman-cs.lock.json`. Validation rejects floating tags,
+mutable branches, unlocked references, and unverified binaries. No stage
+depends on the private personal wrapper.
 
 The guarded installer also verifies that PayPal's Harness Git connector points
 to `postman-cs/paypal-harness-postman-stages`, that both linked remote templates
 resolve from their approved paths on `main`, and that the linked version is
 `v0.1.0`. It refuses forks and inline production copies.
 
-The broader regular onboarding composite currently includes version-tagged
-transitive Postman-CS references, but this Harness stage bypasses that composite
-and calls its Node-based bootstrap core directly. The Harness-compatible
-top-level release tag is exact and lock-mapped, though Git tags can be moved.
+The broader regular onboarding composite includes version-tagged transitive
+Postman-CS references, but this Harness stage bypasses that composite and calls
+its self-contained bootstrap CLI directly. The release binary is protected by
+an exact SHA-256 in addition to the lock-mapped tag and commit.
 
 ## Required Harness inputs
 

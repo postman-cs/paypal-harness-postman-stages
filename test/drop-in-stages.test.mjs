@@ -18,11 +18,13 @@ test('one semantic drop-in stage exists for each PayPal pipeline ask', () => {
 });
 
 test('regular onboarding is the primary Postman lifecycle path', () => {
-  assert.match(onboarding, /uses: postman-cs\/postman-bootstrap-action@v2\.10\.5/);
+  assert.match(onboarding, /postman-cs\/postman-bootstrap-action\/releases\/download\/v\$\{VERSION\}/);
+  assert.match(onboarding, /EXPECTED_SHA256=114a62ae96ec3cfa7e80f45c1192de8caf014b248bb4cb727f0584442a92c336/);
+  assert.match(onboarding, /outputVariables:[\s\S]*?- name: collections_json/);
   assert.doesNotMatch(onboarding, /postman-onboarding-tdd/);
   assert.doesNotMatch(onboarding, /repo-write-mode:|generate-ci-workflow:|enable-insights:|skip-built-in-tests:/);
   assert.match(onboarding, /approve_postman_write/);
-  assert.match(onboarding, /workspace-id: <\+stage\.variables\.workspace_id>/);
+  assert.match(onboarding, /--workspace-id "\$workspace_id"/);
 });
 
 test('CLI stage is read-only, Winter Trinity locked, and publishes JUnit', () => {
@@ -39,7 +41,7 @@ test('CLI stage is read-only, Winter Trinity locked, and publishes JUnit', () =>
 });
 
 test('all customer lifecycle actions resolve directly to postman-cs', () => {
-  assert.match(onboarding, /uses: postman-cs\//);
+  assert.match(onboarding, /github\.com\/postman-cs\/postman-bootstrap-action\/releases/);
   assert.match(gitSync, /uses: postman-cs\/postman-repo-sync-action@[a-f0-9]{40}/);
   assert.match(insights, /uses: postman-cs\/postman-insights-onboarding-action@[a-f0-9]{40}/);
   for (const source of [onboarding, cli, gitSync, insights]) {

@@ -20,9 +20,9 @@ Tonight's first GitHub → Harness → Postman proof is:
 2. `postman-cli-quality-gate.yaml`
 
 The onboarding stage downloads and digest-verifies PayPal's public Orders v2
-contract, calls the regular onboarding core in
-`postman-cs/postman-bootstrap-action` at an exact lock-mapped tag, reuses the
-supplied Winter Trinity workspace, updates the spec and
+contract, downloads and checksum-verifies the exact regular-onboarding CLI from
+the `postman-cs/postman-bootstrap-action` v2.10.5 release, reuses the supplied
+Winter Trinity workspace, updates the spec and
 generated collections, disables Insights, skips built-in tests, and makes no Git
 write. The next independent stage uses the pre-provisioned Postman CLI to prove
 the exact Winter Trinity workspace, lint the same Orders contract, execute only
@@ -41,12 +41,12 @@ an existing workspace ID. The CLI quality gate is read-only.
 - A runner image with the signed Postman CLI already installed. Runtime
   `curl | sh` installation is intentionally prohibited.
 
-Harness exposes GitHub Action outputs to later stages. To avoid manually
-copying generated collection IDs, set the CLI stage's
+The onboarding Run step exports its CLI results as Harness output variables. To
+avoid manually copying generated collection IDs, set the CLI stage's
 `onboarding_collections_json` to:
 
 ```text
-<+pipeline.stages.postman_spec_to_postman_onboarding.spec.execution.steps.run_regular_postman_cs_onboarding.output.outputVariables."collections-json">
+<+pipeline.stages.postman_spec_to_postman_onboarding.spec.execution.steps.run_regular_postman_cs_onboarding.output.outputVariables.collections_json>
 ```
 
 Explicit `smoke_collection_id` or `contract_collection_id` values override the
@@ -56,16 +56,15 @@ corresponding JSON values, so a reviewed fixed-ID rollout remains possible.
 
 All lifecycle actions call `postman-cs/<repo>` directly. GitHub Actions use
 full commit SHAs; the Harness onboarding stage uses the regular onboarding
-bootstrap core at exact release tag `v2.10.5` because Harness resolves Actions
-by Git tag and cannot reliably preload the parent composite's nested actions.
-Its resolved commit is recorded in
+bootstrap CLI from exact release `v2.10.5` because Harness cannot execute its
+`node24` Action runtime. The binary's SHA-256 and resolved commit are recorded in
 `postman-cs.lock.json`; validation fails on floating, unlocked, or mismatched
 top-level references. No PayPal stage references the personal wrapper.
 
 The broader regular onboarding composite contains version-tagged transitive
-`postman-cs` references. This Harness path invokes the Node-based bootstrap core
-directly, removing that nested-composite dependency. Its exact tag is
-lock-mapped, though Git tags can still be moved.
+`postman-cs` references. This Harness path invokes the self-contained bootstrap
+CLI directly, removing that nested-composite dependency. An exact binary digest
+prevents a moved tag from silently changing the executed artifact.
 
 ## Human gates and idempotency
 
