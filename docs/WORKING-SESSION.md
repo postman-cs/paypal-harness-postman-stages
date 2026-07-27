@@ -1,6 +1,6 @@
 # PayPal Harness working-session contract
 
-## Proposed first pass for Jason and Varun
+## Proposed first pass for PayPal's technical team
 
 Use PayPal's public Orders v2 API in the exact Winter Trinity workspace. Add two
 independent stages to one existing non-production Harness pipeline:
@@ -23,14 +23,14 @@ existing governance and promotion stages remain downstream and authoritative.
   PayPal's existing gates.
 - Runtime evidence should ultimately find implemented endpoints absent from the
   authoritative spec, including complex app-to-spec relationships.
-- Jason DeLeau, an API platform engineering manager, wants an
-  engineer-verifiable implementation rather than a UI-only demo.
+- PayPal needs an engineer-verifiable implementation rather than a UI-only
+  demo.
 
 Evidence: PayPal Gong `414844849311536128`, 2026-06-16. The 2026-06-25 meeting
-confirms Deirdre, Jason, and Varun attended, but its transcript is unavailable
-in Kepler and is used only for attendance.
+included PayPal API-platform attendees, but its transcript is unavailable in
+Kepler and is used only for attendance.
 
-## Decisions required from Jason and Varun
+## Decisions required from PayPal's technical team
 
 - Confirm the engineering owner, Harness pipeline owner, secrets owner,
   security approver, rollback owner, and their own ownership split.
@@ -63,8 +63,8 @@ in Kepler and is used only for attendance.
    PMAK generated for the Postman service account; never paste it into YAML or
    a transcript. Demonstrate that the service-token preflight rejects a
    personal-user PMAK. State explicitly that each Harness job automatically
-   mints a fresh short-lived service token from this PMAK; Jason never mints,
-   copies, or stores the short-lived token himself.
+   mints a fresh short-lived service token from this PMAK; the operator never
+   mints, copies, or stores the short-lived token manually.
 5. Provide the exact existing Winter Trinity workspace ID, set
    `approve_postman_write=true`, and run regular Orders onboarding.
 6. Record generated/reused spec and collection IDs; rerun unchanged and verify
@@ -88,7 +88,8 @@ date. The first three have a research-backed proposal in
 
 ## Acceptance boundary
 
-The working session succeeds when Jason or Varun can point to the selected
-existing pipeline, verify the direct regular-onboarding action pin, see a stable
-Orders onboarding rerun and CLI/JUnit result in Winter Trinity, and name the
-private-service owner and next date. A sandbox run is not production approval.
+The working session succeeds when the named PayPal technical owner can point to
+the selected existing pipeline, verify the direct regular-onboarding action pin,
+see a stable Orders onboarding rerun and CLI/JUnit result in Winter Trinity, and
+name the private-service owner and next date. A sandbox run is not production
+approval.

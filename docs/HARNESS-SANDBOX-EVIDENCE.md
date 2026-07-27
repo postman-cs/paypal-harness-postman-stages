@@ -7,7 +7,7 @@
 
 ## Current direct-stage proof
 
-Pipeline `PayPal_Jason_Orders_DropIn_Proof` was created in Harness account
+The legacy PayPal Orders proof pipeline was created in Harness account
 `MqRO9-E1S3KCCbydo-lPPg`, organization `default`, project `default_project` on
 2026-07-22 from the exact onboarding and CLI stage files in this repository.
 The create returned HTTP 200 with no YAML errors. Submitting the definition
@@ -41,7 +41,7 @@ environments, mocks, and monitors, matching the before-state. There was no
 partial mutation. Successful asset idempotency remains unproven until the
 verified service account is assigned to the target workspace with write access
 and two identical runs succeed. See
-[`JASON-SIMULATION-2026-07-22.md`](JASON-SIMULATION-2026-07-22.md).
+[`PAYPAL-SIMULATION-2026-07-22.md`](PAYPAL-SIMULATION-2026-07-22.md).
 
 ## Selected sandbox
 

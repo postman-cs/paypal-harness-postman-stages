@@ -1,6 +1,6 @@
-# Jason handoff: add the Postman stages to a PayPal Harness pipeline
+# PayPal handoff: add the Postman stages to a PayPal Harness pipeline
 
-Jason does **not** add these stages to Daniel's Harness account. PayPal imports
+PayPal engineers do **not** add these stages to Daniel's Harness account. PayPal imports
 the two remote stage templates into PayPal's Harness project, then links them
 into the existing PayPal pipeline. PayPal's trigger, repository checkout,
 approvals, promotion, and deployment remain unchanged.
@@ -53,7 +53,7 @@ floating tag, or different repository is not accepted for production.
    authenticate Postman CLI but cannot mint the short-lived service token used
    for asset operations. Do not put the PMAK in Git, a runtime input, a
    command-line argument, or a build log.
-5. Keep service-token minting in the pipeline. Jason doesn't manually generate,
+5. Keep service-token minting in the pipeline. The operator doesn't manually generate,
    copy, or persist the short-lived token. On every job, regular onboarding
    mints one inside `postman-bootstrap-action`; the CLI gate separately runs the
    checksum-pinned `postman-resolve-service-token-action` Linux binary and fails
@@ -118,7 +118,7 @@ pnpm harness:install -- --rollback .harness-backups/PRINTED_BACKUP_FILE.yaml
 
 ## First run inputs
 
-Use the non-secret defaults in `harness/inputs/jason-orders.defaults.yaml`.
+Use the non-secret defaults in `harness/inputs/paypal-orders.defaults.yaml`.
 The public Orders v2 contract is pinned by both upstream commit and SHA-256.
 Choose one workspace strategy:
 
@@ -152,7 +152,7 @@ onboarding outputs.
 The 2026-07-22 rehearsal reached Postman with a verified service-account PMAK
 but stopped before any write because the service account was not assigned to
 the Winter Trinity workspace. See
-[`JASON-SIMULATION-2026-07-22.md`](JASON-SIMULATION-2026-07-22.md) for the
+[`PAYPAL-SIMULATION-2026-07-22.md`](PAYPAL-SIMULATION-2026-07-22.md) for the
 boundary-by-boundary evidence and clean Winter Trinity after-state.
 
 ## macOS service-account preflight

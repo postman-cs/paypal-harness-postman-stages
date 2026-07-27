@@ -8,7 +8,7 @@ execution plane.
 
 For production, PayPal links the generated Harness stage templates from
 `postman-cs/paypal-harness-postman-stages` rather than copying them or using a
-personal wrapper. Start with the [Jason handoff](docs/JASON-QUICKSTART.md).
+personal wrapper. Start with the [PayPal handoff](docs/PAYPAL-QUICKSTART.md).
 
 ## One stage per PayPal ask
 
@@ -19,7 +19,7 @@ personal wrapper. Start with the [Jason handoff](docs/JASON-QUICKSTART.md).
 | Postman assets → reviewable local Git commit | `harness/stages/postman-to-git-sync.yaml` |
 | Runtime service discovery/linkage for rogue-route analysis | `harness/stages/runtime-route-discovery.yaml` |
 
-The first pipeline for Jason tonight is **spec-to-Postman onboarding followed
+The first pipeline for PayPal's technical team is **spec-to-Postman onboarding followed
 by the Postman CLI quality gate**. It uses the immutable public PayPal Orders v2
 contract, an explicit existing-or-create workspace strategy, the
 checksum-verified `postman-cs/postman-bootstrap-action` release binary (the
@@ -69,7 +69,7 @@ an exact SHA-256 in addition to the lock-mapped tag and commit.
   the Postman service account. A personal-user PMAK cannot mint the short-lived
   service token required for asset operations.
 - A fresh service token must be minted inside every Harness job that performs
-  Postman work. Jason does not mint or copy this token manually: regular
+  Postman work. The operator does not mint or copy this token manually: regular
   onboarding mints it inside the pinned bootstrap runtime, and the CLI gate
   uses the checksum-pinned Postman-CS resolver before doing any work. The token
   is job-scoped and must never be stored as a Harness secret or output.
@@ -132,7 +132,7 @@ credentialed PayPal Postman round trip.
 See the [drop-in guide](docs/PAYPAL-DROP-IN.md), [requirements](docs/PAYPAL-REQUIREMENTS.md),
 [idempotency contract](docs/IDEMPOTENCY.md), [build log](docs/BUILD-LOG.md), and
 [working-session plan](docs/WORKING-SESSION.md). The
-[Jason simulation](docs/JASON-SIMULATION-2026-07-22.md) records the real
+[PayPal simulation](docs/PAYPAL-SIMULATION-2026-07-22.md) records the real
 GitHub→Harness→Postman attempt, and the
 [technical-team checklist](docs/CUSTOMER-TECHNICAL-CONSIDERATIONS.md) covers
 production decisions and known backend constraints.

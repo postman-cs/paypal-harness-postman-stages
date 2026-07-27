@@ -24,7 +24,7 @@
 
 ## Stakeholders and ownership
 
-- **Jason DeLeau or Varun Gnanaselvan:** One is required to confirm technical ownership; the evidence does not establish their formal roles or which person owns the next step.
+- **Named PayPal technical owner:** PayPal still needs to identify who owns technical validation and the next step.
 - **PayPal pipeline owner:** Must approve test execution; the individual is unknown.
 - **Customer technical owners:** Not yet confirmed.
 - **Repository publishing owner:** Unknown.
@@ -69,7 +69,7 @@
 
 ## Recommended next actions
 
-1. **Jason DeLeau or Varun Gnanaselvan — 2026-07-22:** Confirm which person owns technical validation and identify the PayPal pipeline owner.
+1. **PayPal account team:** Name the technical-validation owner and identify the PayPal pipeline owner.
 2. **Named PayPal pipeline owner:** Approve the first test execution and confirm the customer-approved source-control location.
 3. **Named technical owner:** Document the runner type, Node 24 support, repository/PR context, first service/specification, and exact `Winter Trinity` workspace identity.
 4. **Repository publishing owner, once assigned:** Decide whether to mirror the current private wrapper into PayPal source control; keep the exact action revision immutable.

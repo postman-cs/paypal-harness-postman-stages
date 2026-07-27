@@ -7,7 +7,7 @@ Production links those remote templates from
 a personal wrapper. The linked stages inherit the parent repository, trigger,
 connector, revision, and downstream controls.
 
-## First delivery for Jason
+## First delivery for PayPal's technical team
 
 Insert these two independent stages before PayPal's current governance and
 promotion gates:
@@ -49,7 +49,7 @@ collection execution, failure gating, and JUnit.
     JUnit before introducing a private service.
 
 The installer validates the connector URL and both template Git metadata
-records before it will change the pipeline. See `docs/JASON-QUICKSTART.md` for
+records before it will change the pipeline. See `docs/PAYPAL-QUICKSTART.md` for
 the exact handoff commands and rollback flow.
 
 ## Public Orders source
@@ -59,7 +59,7 @@ the exact handoff commands and rollback flow.
 - Artifact: `openapi/checkout_orders_v2.json`
 - SHA-256: `14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6`
 
-This is the public contract Deirdre and Jason selected for the proof.
+This is the public contract selected for the proof.
 
 ## Later stages
 
