@@ -77,10 +77,10 @@ if (!WORKSPACE) {
   }
 }
 
-// 1. Spec: digest-verified, created once, adopted thereafter.
-const specs = (await api('GET', `/specs?workspaceId=${WORKSPACE}`)).specs ?? [];
-let spec = specs.find((s) => s.name === PROJECT);
-if (!spec) {
+// 1. Spec: digest-verified, created once, and CONVERGED thereafter — if the
+//    pinned contract changes (new spec_sha256) or Spec Hub content drifts,
+//    the adopted spec's file is updated to match the pinned bytes exactly.
+async function fetchPinnedContract() {
   const contractRes = await fetch(SPEC_URL);
   if (!contractRes.ok) throw new Error(`spec download failed: ${contractRes.status}`);
   const contract = await contractRes.text();
@@ -88,12 +88,31 @@ if (!spec) {
   if (digest !== SPEC_SHA256.toLowerCase()) {
     throw new Error(`spec digest mismatch: expected ${SPEC_SHA256}, got ${digest}`);
   }
+  return contract;
+}
+
+const specs = (await api('GET', `/specs?workspaceId=${WORKSPACE}`)).specs ?? [];
+let spec = specs.find((s) => s.name === PROJECT);
+let specConverged = false;
+if (!spec) {
   spec = await api('POST', `/specs?workspaceId=${WORKSPACE}`, {
     name: PROJECT,
     type: 'OPENAPI:3.0',
-    files: [{ path: 'index.json', content: contract }],
+    files: [{ path: 'index.json', content: await fetchPinnedContract() }],
   });
   created.spec = true;
+} else {
+  const files = (await api('GET', `/specs/${spec.id}/files`)).files ?? [];
+  const filePath = files[0]?.path ?? 'index.json';
+  let current = '';
+  if (files.length) {
+    const f = await api('GET', `/specs/${spec.id}/files/${filePath}`);
+    current = typeof f.content === 'string' ? f.content : JSON.stringify(f.content ?? '');
+  }
+  if (createHash('sha256').update(current).digest('hex') !== SPEC_SHA256.toLowerCase()) {
+    await api('PATCH', `/specs/${spec.id}/files/${filePath}`, { content: await fetchPinnedContract() });
+    specConverged = true;
+  }
 }
 
 // 2. Contract collection: generated from the live application's OpenAPI so the
@@ -183,3 +202,4 @@ console.log(`CONTRACT_UID=${result.contractUid}`);
 console.log(`SMOKE_UID=${result.smokeUid}`);
 console.log(`ENVIRONMENT_UID=${result.environmentUid}`);
 console.log(`CREATED=${Object.entries(created).filter(([, v]) => v).map(([k]) => k).join(',') || 'none-adopted-all'}`);
+if (specConverged) console.log('SPEC_CONTENT=converged-to-pinned-digest');
