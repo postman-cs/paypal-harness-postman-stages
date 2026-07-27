@@ -17,14 +17,26 @@ pipeline:
         build: <+input>
   stages:
     - stage:
-        name: Postman - Spec to Postman onboarding
-        identifier: postman_spec_to_postman_onboarding
+        name: Postman - Provision assets
+        identifier: postman_asset_provision
         type: CI
         variables:
           - name: project_name
             type: String
             required: true
             value: <+input>.default(paypal-orders)
+          - name: workspace_id
+            type: String
+            required: false
+            value: <+input>
+          - name: workspace_name
+            type: String
+            required: false
+            value: <+input>.default(Winter Trinity)
+          - name: workspace_team_id
+            type: String
+            required: false
+            value: <+input>
           - name: spec_url
             type: String
             required: true
@@ -33,129 +45,56 @@ pipeline:
             type: String
             required: true
             value: <+input>.default(14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6)
-          - name: workspace_mode
+          - name: inventory_url
             type: String
             required: true
-            value: <+input>.default(existing).allowedValues(existing,create)
-          - name: workspace_id
-            type: String
-            required: false
             value: <+input>
-          - name: target_workspace_name
-            type: String
-            required: false
-            value: <+input>.default(Winter Trinity)
-          - name: workspace_team_id
-            type: String
-            required: false
-            value: <+input>
-          - name: service_repo_url
-            type: String
-            required: false
-            value: <+input>
-          - name: governance_group
-            type: String
-            required: false
-            value: <+input>
-          - name: requester_email
-            type: String
-            required: false
-            value: <+input>
-          - name: workspace_admin_user_ids
-            type: String
-            required: false
-            value: <+input>
-          - name: spec_id
-            type: String
-            required: false
-            value: <+input>
-          - name: baseline_collection_id
-            type: String
-            required: false
-            value: <+input>
-          - name: smoke_collection_id
-            type: String
-            required: false
-            value: <+input>
-          - name: contract_collection_id
-            type: String
-            required: false
-            value: <+input>
-          - name: approve_postman_write
+          - name: app_base_url
             type: String
             required: true
-            value: <+input>.allowedValues(false,true)
+            value: <+input>
+          - name: environment_name
+            type: String
+            required: false
+            value: <+input>
         spec:
           cloneCodebase: true
           execution:
             steps:
               - step:
                   type: Run
-                  name: Verify immutable PayPal Orders source
-                  identifier: verify_immutable_paypal_orders_source
+                  name: Verify Postman service-account identity
+                  identifier: verify_postman_service_account_identity
                   spec:
                     connectorRef: PAYPAL_REGISTRY_CONNECTOR
                     image: PAYPAL_TOOLS_IMAGE
                     shell: Sh
+                    envVariables:
+                      POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_service_account_pmak")>
                     command: |-
+                      set +x
                       set -eu
-                      SPEC_URL='<+stage.variables.spec_url>'
-                      SPEC_SHA256='<+stage.variables.spec_sha256>'
-                      case "$SPEC_URL" in https://*) ;; *) echo 'spec_url must use HTTPS.' >&2; exit 2 ;; esac
-                      printf '%s' "$SPEC_SHA256" | grep -Eq '^[a-fA-F0-9]{64}$' || {
-                        echo 'spec_sha256 must be an exact 64-character SHA-256 digest.' >&2
+                      VERSION=2.0.4
+                      EXPECTED_SHA256=1e0b51548b67848a1f168cf543bf9779b2acb0dcd26a392aa99c2efd43f76c09
+                      BIN=.postman-stage/bin/postman-resolve-service-token
+                      mkdir -p .postman-stage/bin
+                      curl --fail --silent --show-error --location \
+                        "https://github.com/postman-cs/postman-resolve-service-token-action/releases/download/v${VERSION}/postman-resolve-service-token-${VERSION}-linux-x64" \
+                        --output "$BIN"
+                      printf '%s  %s\n' "$EXPECTED_SHA256" "$BIN" | sha256sum --check --status
+                      chmod 0755 "$BIN"
+                      RESOLVED="$("$BIN" --postman-region us)" || {
+                        echo '::error::The configured PMAK is not a service-account credential. Personal keys are rejected pipeline-wide.'
                         exit 2
                       }
-                      mkdir -p .postman-stage/openapi
-                      curl --fail --silent --show-error --location "$SPEC_URL" \
-                        --output .postman-stage/openapi/checkout_orders_v2.json
-                      printf '%s  %s\n' "$SPEC_SHA256" \
-                        .postman-stage/openapi/checkout_orders_v2.json | sha256sum --check --status
+                      RESULT_JSON="$RESOLVED" node -e 'const r=JSON.parse(process.env.RESULT_JSON); if(!r.token || !r["team-id"]) process.exit(2)'
+                      unset RESOLVED RESULT_JSON
+                      echo 'POSTMAN_HARNESS identity=verified-service-account-pmak scope=pipeline-first-step'
+                      echo 'POSTMAN_HARNESS dependency=postman-cs/postman-resolve-service-token-action ref=v2.0.4 commit=38f8cd423ebcd65ecfcd99336e771ffe2de98b5b'
               - step:
                   type: Run
-                  name: Enforce explicit onboarding approval
-                  identifier: enforce_onboarding_approval
-                  spec:
-                    connectorRef: PAYPAL_REGISTRY_CONNECTOR
-                    image: PAYPAL_TOOLS_IMAGE
-                    shell: Sh
-                    command: |-
-                      set -eu
-                      [ '<+stage.variables.approve_postman_write>' = 'true' ] || {
-                        echo 'Set approve_postman_write=true after reviewing the target workspace strategy and immutable spec.' >&2
-                        exit 2
-                      }
-                      case '<+stage.variables.workspace_mode>' in
-                        existing)
-                          [ -n '<+stage.variables.workspace_id>' ] || {
-                            echo 'workspace_id is required when workspace_mode=existing.' >&2
-                            exit 2
-                          }
-                          [ -n '<+stage.variables.target_workspace_name>' ] || {
-                            echo 'target_workspace_name is required when workspace_mode=existing.' >&2
-                            exit 2
-                          }
-                          ;;
-                        create)
-                          [ -z '<+stage.variables.workspace_id>' ] || {
-                            echo 'workspace_id must be empty when workspace_mode=create.' >&2
-                            exit 2
-                          }
-                          [ -n '<+stage.variables.workspace_team_id>' ] || {
-                            echo 'workspace_team_id is required for deterministic enterprise workspace ownership.' >&2
-                            exit 2
-                          }
-                          [ -n '<+stage.variables.service_repo_url>' ] || {
-                            echo 'service_repo_url is required so create mode can reconcile the canonical workspace on reruns.' >&2
-                            exit 2
-                          }
-                          ;;
-                        *) echo 'workspace_mode must be existing or create.' >&2; exit 2 ;;
-                      esac
-              - step:
-                  type: Run
-                  name: Run regular Postman-CS onboarding core
-                  identifier: run_regular_postman_cs_onboarding
+                  name: Ensure Postman assets
+                  identifier: ensure_assets
                   spec:
                     connectorRef: PAYPAL_REGISTRY_CONNECTOR
                     image: PAYPAL_TOOLS_IMAGE
@@ -164,75 +103,150 @@ pipeline:
                       POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_service_account_pmak")>
                     command: |-
                       set -eu
-                      VERSION=2.10.5
-                      EXPECTED_SHA256=114a62ae96ec3cfa7e80f45c1192de8caf014b248bb4cb727f0584442a92c336
-                      RELEASE_URL="https://github.com/postman-cs/postman-bootstrap-action/releases/download/v${VERSION}/postman-bootstrap-${VERSION}-linux-x64"
-                      BIN=.postman-stage/bin/postman-bootstrap
-                      RESULT=.postman-stage/bootstrap-result.json
-                      DOTENV=.postman-stage/bootstrap.env
-                      mkdir -p .postman-stage/bin
-                      curl --fail --silent --show-error --location "$RELEASE_URL" --output "$BIN"
-                      printf '%s  %s\n' "$EXPECTED_SHA256" "$BIN" | sha256sum --check --status
-                      chmod 0755 "$BIN"
-
+                      WS_ID='<+stage.variables.workspace_id>'
+                      WS_NAME='<+stage.variables.workspace_name>'
+                      WS_TEAM='<+stage.variables.workspace_team_id>'
+                      ENV_NAME='<+stage.variables.environment_name>'
                       set -- \
-                        --project-name "$project_name" \
-                        --spec-url "$spec_url" \
-                        --collection-sync-mode refresh \
-                        --spec-sync-mode update \
-                        --credential-preflight enforce \
-                        --postman-region us
-                      case "$workspace_mode" in existing) set -- "$@" --workspace-id "$workspace_id" ;; esac
-                      case "${workspace_team_id:-}" in ''|'<+'*) ;; *) set -- "$@" --workspace-team-id "$workspace_team_id" ;; esac
-                      case "${service_repo_url:-}" in ''|'<+'*) ;; *) set -- "$@" --repo-url "$service_repo_url" ;; esac
-                      case "${governance_group:-}" in ''|'<+'*) ;; *) set -- "$@" --governance-group "$governance_group" ;; esac
-                      case "${requester_email:-}" in ''|'<+'*) ;; *) set -- "$@" --requester-email "$requester_email" ;; esac
-                      case "${workspace_admin_user_ids:-}" in ''|'<+'*) ;; *) set -- "$@" --workspace-admin-user-ids "$workspace_admin_user_ids" ;; esac
-                      case "${spec_id:-}" in ''|'<+'*) ;; *) set -- "$@" --spec-id "$spec_id" ;; esac
-                      case "${baseline_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --baseline-collection-id "$baseline_collection_id" ;; esac
-                      case "${smoke_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --smoke-collection-id "$smoke_collection_id" ;; esac
-                      case "${contract_collection_id:-}" in ''|'<+'*) ;; *) set -- "$@" --contract-collection-id "$contract_collection_id" ;; esac
-
-                      "$BIN" "$@" --result-json "$RESULT" --dotenv-path "$DOTENV" > .postman-stage/bootstrap.stdout.json
-                      set -a
-                      . "$DOTENV"
-                      set +a
-                      case "$workspace_mode" in
-                        existing) [ "$POSTMAN_BOOTSTRAP_WORKSPACE_ID" = "$workspace_id" ] ;;
-                        create) [ -n "$POSTMAN_BOOTSTRAP_WORKSPACE_ID" ] ;;
-                      esac
-                      export workspace_id="$POSTMAN_BOOTSTRAP_WORKSPACE_ID"
-                      case "$workspace_mode" in
-                        existing) export workspace_name="$target_workspace_name" ;;
-                        create) export workspace_name="$POSTMAN_BOOTSTRAP_WORKSPACE_NAME" ;;
-                      esac
-                      export spec_id="$POSTMAN_BOOTSTRAP_SPEC_ID"
-                      export baseline_collection_id="$POSTMAN_BOOTSTRAP_BASELINE_COLLECTION_ID"
-                      export smoke_collection_id="$POSTMAN_BOOTSTRAP_SMOKE_COLLECTION_ID"
-                      export contract_collection_id="$POSTMAN_BOOTSTRAP_CONTRACT_COLLECTION_ID"
-                      export collections_json="$POSTMAN_BOOTSTRAP_COLLECTIONS_JSON"
+                        --project-name '<+stage.variables.project_name>' \
+                        --spec-url '<+stage.variables.spec_url>' \
+                        --spec-sha256 '<+stage.variables.spec_sha256>' \
+                        --inventory-url '<+stage.variables.inventory_url>' \
+                        --app-base-url '<+stage.variables.app_base_url>' \
+                        --result-json .postman-stage/provision-result.json
+                      case "$WS_ID" in ''|'<+'*) set -- "$@" --workspace-name "$WS_NAME" --workspace-team-id "$WS_TEAM" ;; *) set -- "$@" --workspace-id "$WS_ID" ;; esac
+                      case "$ENV_NAME" in ''|'<+'*) ;; *) set -- "$@" --env-name "$ENV_NAME" ;; esac
+                      mkdir -p .postman-stage
+                      node scripts/ensure-postman-assets.mjs "$@" | tee .postman-stage/provision.out
+                      export WORKSPACE_ID=$(grep ^WORKSPACE_ID= .postman-stage/provision.out | cut -d= -f2)
+                      export SPEC_ID=$(grep ^SPEC_ID= .postman-stage/provision.out | cut -d= -f2)
+                      export CONTRACT_UID=$(grep ^CONTRACT_UID= .postman-stage/provision.out | cut -d= -f2)
+                      export SMOKE_UID=$(grep ^SMOKE_UID= .postman-stage/provision.out | cut -d= -f2)
+                      export ENVIRONMENT_UID=$(grep ^ENVIRONMENT_UID= .postman-stage/provision.out | cut -d= -f2)
+                      export CREATED=$(grep ^CREATED= .postman-stage/provision.out | cut -d= -f2)
                     outputVariables:
-                      - name: workspace_id
-                      - name: workspace_name
-                      - name: spec_id
-                      - name: baseline_collection_id
-                      - name: smoke_collection_id
-                      - name: contract_collection_id
-                      - name: collections_json
+                      - name: WORKSPACE_ID
+                      - name: SPEC_ID
+                      - name: CONTRACT_UID
+                      - name: SMOKE_UID
+                      - name: ENVIRONMENT_UID
+                      - name: CREATED
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: PAYPAL_KUBERNETES_CONNECTOR
+              namespace: PAYPAL_CI_NAMESPACE
+              automountServiceAccountToken: false
+              nodeSelector: {}
+              os: Linux
+    - stage:
+        name: Postman - Route contract comparison
+        identifier: postman_route_contract_comparison
+        type: CI
+        variables:
+          - name: app_base_url
+            type: String
+            required: true
+            value: <+input>
+          - name: inventory_url
+            type: String
+            required: true
+            value: <+input>
+          - name: spec_path
+            type: String
+            required: true
+            value: <+input>
+          - name: subset_path
+            type: String
+            required: false
+            value: <+input>
+          - name: exceptions_path
+            type: String
+            required: false
+            value: <+input>
+          - name: strip_prefix
+            type: String
+            required: false
+            value: <+input>
+          - name: policy
+            type: String
+            required: true
+            value: <+input>.default(block).allowedValues(block,warn)
+        spec:
+          cloneCodebase: true
+          execution:
+            steps:
               - step:
                   type: Run
-                  name: Record onboarding evidence
-                  identifier: record_onboarding_evidence
+                  name: Wait for application health
+                  identifier: wait_for_application_health
                   spec:
                     connectorRef: PAYPAL_REGISTRY_CONNECTOR
                     image: PAYPAL_TOOLS_IMAGE
                     shell: Sh
                     command: |-
                       set -eu
-                      echo 'POSTMAN_HARNESS event=stage_complete stage=spec-to-postman-onboarding writePolicy=approved-postman-upsert+git-none'
-                      echo 'POSTMAN_HARNESS dependency=postman-cs/postman-bootstrap-action ref=v2.10.5 commit=848edbabcbfd311168e05b2976b907736f020ba5'
-                      echo 'POSTMAN_HARNESS identity=service-account-pmak+fresh-access-token'
-                      echo 'POSTMAN_HARNESS idempotency=existing-or-canonical-created-workspace+refresh-collections+update-spec'
+                      APP='<+stage.variables.app_base_url>'
+                      for i in $(seq 1 60); do
+                        CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP/actuator/health" || true)
+                        [ "$CODE" = "200" ] && break
+                        sleep 5
+                      done
+                      [ "$CODE" = "200" ] || { echo 'Application health endpoint never returned 200.' >&2; exit 2; }
+                      echo "application healthy: $APP"
+              - step:
+                  type: Run
+                  name: Export live route inventory
+                  identifier: export_route_inventory
+                  spec:
+                    connectorRef: PAYPAL_REGISTRY_CONNECTOR
+                    image: PAYPAL_TOOLS_IMAGE
+                    shell: Sh
+                    command: |-
+                      set -eu
+                      mkdir -p .route-contract-reports
+                      curl -fsS '<+stage.variables.inventory_url>' -o .route-contract-reports/inventory.json
+                      echo "inventory exported from <+stage.variables.inventory_url>"
+              - step:
+                  type: Run
+                  name: Compare routes bidirectionally
+                  identifier: compare_routes
+                  spec:
+                    connectorRef: PAYPAL_REGISTRY_CONNECTOR
+                    image: PAYPAL_TOOLS_IMAGE
+                    shell: Sh
+                    command: |-
+                      set -eu
+                      SUBSET='<+stage.variables.subset_path>'
+                      EXCEPTIONS='<+stage.variables.exceptions_path>'
+                      set -- --spec '<+stage.variables.spec_path>' \
+                        --routes .route-contract-reports/inventory.json \
+                        --strip-prefix '<+stage.variables.strip_prefix>' \
+                        --policy '<+stage.variables.policy>' \
+                        --json-out .route-contract-reports/route-contract.json \
+                        --junit-out .route-contract-reports/route-contract.xml
+                      case "$SUBSET" in ''|'<+'*) ;; *) set -- "$@" --subset "$SUBSET" ;; esac
+                      case "$EXCEPTIONS" in ''|'<+'*) ;; *) set -- "$@" --exceptions "$EXCEPTIONS" ;; esac
+                      node scripts/compare-routes.mjs "$@"
+                    reports:
+                      type: JUnit
+                      spec:
+                        paths:
+                          - .route-contract-reports/route-contract.xml
+              - step:
+                  type: Run
+                  name: Summarize route-contract artifacts
+                  identifier: summarize_route_contract_artifacts
+                  when:
+                    stageStatus: All
+                  spec:
+                    connectorRef: PAYPAL_REGISTRY_CONNECTOR
+                    image: PAYPAL_TOOLS_IMAGE
+                    shell: Sh
+                    command: |-
+                      set -eu
+                      find .route-contract-reports -maxdepth 1 -type f -print 2>/dev/null | sort || true
+                      echo 'POSTMAN_HARNESS event=stage_complete stage=route-contract-comparison writePolicy=none'
           infrastructure:
             type: KubernetesDirect
             spec:
@@ -249,7 +263,7 @@ pipeline:
           - name: workspace_id
             type: String
             required: true
-            value: <+input>
+            value: <+pipeline.stages.postman_asset_provision.spec.execution.steps.ensure_assets.output.outputVariables.WORKSPACE_ID>
           - name: workspace_name
             type: String
             required: true
@@ -265,11 +279,11 @@ pipeline:
           - name: smoke_collection_id
             type: String
             required: false
-            value: <+input>
+            value: <+pipeline.stages.postman_asset_provision.spec.execution.steps.ensure_assets.output.outputVariables.SMOKE_UID>
           - name: contract_collection_id
             type: String
             required: false
-            value: <+input>
+            value: <+pipeline.stages.postman_asset_provision.spec.execution.steps.ensure_assets.output.outputVariables.CONTRACT_UID>
           - name: onboarding_collections_json
             type: String
             required: false
@@ -277,7 +291,7 @@ pipeline:
           - name: environment_id
             type: String
             required: false
-            value: <+input>
+            value: <+pipeline.stages.postman_asset_provision.spec.execution.steps.ensure_assets.output.outputVariables.ENVIRONMENT_UID>
         spec:
           cloneCodebase: true
           execution:

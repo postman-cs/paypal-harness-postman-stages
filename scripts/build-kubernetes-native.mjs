@@ -11,10 +11,28 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // KubernetesDirect infrastructure and need no privileged runner. Every Run
 // step executes inside PAYPAL_TOOLS_IMAGE, which must pre-bake Node 24 and
 // the signed Postman CLI; runtime curl-pipe CLI installation stays forbidden.
+// Default emitted shape is the proven day-one pipeline: provision (identity
+// check first, then idempotent asset provisioning with ids as outputs) ->
+// route-contract comparison -> CLI quality gate consuming provision outputs.
+// The spec-to-postman-onboarding stage stays available as a drop-in but is
+// excluded from the default emit while its Spec Hub upload path is blocked
+// upstream (the provision stage covers spec sync via the public Specs API).
 export const KUBERNETES_NATIVE_STAGES = [
-  'harness/stages/spec-to-postman-onboarding.yaml',
+  'harness/stages/postman-asset-provision.yaml',
+  'harness/stages/route-contract-comparison.yaml',
   'harness/stages/postman-cli-quality-gate.yaml',
 ];
+
+const PROVISION_OUT =
+  '<+pipeline.stages.postman_asset_provision.spec.execution.steps.ensure_assets.output.outputVariables';
+
+// Gate inputs resolved from provision outputs so no asset id is ever typed by hand.
+const GATE_OUTPUT_WIRING = {
+  workspace_id: `${PROVISION_OUT}.WORKSPACE_ID>`,
+  smoke_collection_id: `${PROVISION_OUT}.SMOKE_UID>`,
+  contract_collection_id: `${PROVISION_OUT}.CONTRACT_UID>`,
+  environment_id: `${PROVISION_OUT}.ENVIRONMENT_UID>`,
+};
 
 export const KUBERNETES_PIPELINE_PATH = 'harness/pipeline-kubernetes-native.yaml';
 
@@ -62,6 +80,12 @@ export function buildKubernetesNativePipeline() {
   const stages = KUBERNETES_NATIVE_STAGES.map((stagePath) =>
     stageToKubernetesNative(readFileSync(resolve(root, stagePath), 'utf8'), stagePath),
   );
+  for (const stage of stages) {
+    if (stage.identifier !== 'postman_cli_quality_gate') continue;
+    for (const variable of stage.variables ?? []) {
+      if (variable.name in GATE_OUTPUT_WIRING) variable.value = GATE_OUTPUT_WIRING[variable.name];
+    }
+  }
   const pipeline = {
     pipeline: {
       name: 'PayPal Postman Kubernetes Pipeline',

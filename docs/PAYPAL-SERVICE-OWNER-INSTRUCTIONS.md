@@ -107,6 +107,14 @@ Every Run step executes inside one image that pre-bakes Node 24 and the signed
 Postman CLI. Runtime `curl | sh` installation is rejected by the gate — this
 is a supply-chain control, not an inconvenience.
 
+**Preferred: pull the published image.** The repository's
+`publish-tools-image` workflow publishes
+`ghcr.io/postman-cs/postman-tools:node24` on every Dockerfile change to
+`main` — point `PAYPAL_TOOLS_IMAGE` at it (or mirror it into your internal
+registry) and skip the local build entirely.
+
+**Alternative: build it yourself** (air-gapped registries, custom base):
+
 ```
 cd docker/postman-tools
 docker build --platform linux/amd64 -t <your-registry>/postman-tools:node24 .
@@ -127,6 +135,14 @@ pnpm install --frozen-lockfile
 pnpm run check                 # 41 tests + supply-chain + template validation
 pnpm harness:kubernetes        # emits harness/pipeline-kubernetes-native.yaml
 ```
+
+The emitted pipeline is the proven day-one shape — three stages in order:
+**provision** (service-account identity check first, then idempotent asset
+provisioning with ids emitted as outputs) → **route-contract comparison** →
+**CLI quality gate** (asset inputs wired to provision outputs, so no id is
+ever typed by hand). The onboarding stage remains available as a drop-in but
+is excluded from the default emit while its Spec Hub upload path is blocked
+upstream (§9.1); the provision stage covers spec sync via the public API.
 
 Import the emitted YAML into Harness, then replace every `PAYPAL_*`
 placeholder in the UI:

@@ -1,0 +1,128 @@
+# PAYPAL DROP-IN — idempotent Postman asset provisioning (public API only).
+# Run this FIRST. Step 1 verifies the credential is a service-account PMAK
+# (pipeline-wide identity enforcement — personal keys fail closed before any
+# Postman write). Step 2 ensures workspace, digest-verified spec, contract +
+# smoke collections, and environment; assets are adopted by canonical name on
+# reruns and never duplicated. Asset ids are emitted as output variables so
+# downstream stages (route contract, CLI quality gate) reference them via
+# expressions — no hardcoded ids anywhere in pipeline YAML.
+# Also sidesteps the Spec Hub ws-proxy upload limit documented in the
+# service-owner instructions (§9.1): specs go through the public Specs API.
+stage:
+  name: Postman - Provision assets
+  identifier: postman_asset_provision
+  type: CI
+  variables:
+    - name: project_name
+      type: String
+      required: true
+      value: <+input>.default(paypal-orders)
+    - name: workspace_id
+      type: String
+      required: false
+      value: <+input>
+    - name: workspace_name
+      type: String
+      required: false
+      value: <+input>.default(Winter Trinity)
+    - name: workspace_team_id
+      type: String
+      required: false
+      value: <+input>
+    - name: spec_url
+      type: String
+      required: true
+      value: <+input>.default(https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/9f0f52810ae24244ec3f24260c28f58e198d0b9e/openapi/checkout_orders_v2.json)
+    - name: spec_sha256
+      type: String
+      required: true
+      value: <+input>.default(14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6)
+    - name: inventory_url
+      type: String
+      required: true
+      value: <+input>
+    - name: app_base_url
+      type: String
+      required: true
+      value: <+input>
+    - name: environment_name
+      type: String
+      required: false
+      value: <+input>
+  spec:
+    cloneCodebase: true
+    platform:
+      os: Linux
+      arch: Amd64
+    runtime:
+      type: Cloud
+      spec: {}
+    execution:
+      steps:
+        - step:
+            type: Run
+            name: Verify Postman service-account identity
+            identifier: verify_postman_service_account_identity
+            spec:
+              shell: Sh
+              envVariables:
+                POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_service_account_pmak")>
+              command: |-
+                set +x
+                set -eu
+                VERSION=2.0.4
+                EXPECTED_SHA256=1e0b51548b67848a1f168cf543bf9779b2acb0dcd26a392aa99c2efd43f76c09
+                BIN=.postman-stage/bin/postman-resolve-service-token
+                mkdir -p .postman-stage/bin
+                curl --fail --silent --show-error --location \
+                  "https://github.com/postman-cs/postman-resolve-service-token-action/releases/download/v${VERSION}/postman-resolve-service-token-${VERSION}-linux-x64" \
+                  --output "$BIN"
+                printf '%s  %s\n' "$EXPECTED_SHA256" "$BIN" | sha256sum --check --status
+                chmod 0755 "$BIN"
+                RESOLVED="$("$BIN" --postman-region us)" || {
+                  echo '::error::The configured PMAK is not a service-account credential. Personal keys are rejected pipeline-wide.'
+                  exit 2
+                }
+                RESULT_JSON="$RESOLVED" node -e 'const r=JSON.parse(process.env.RESULT_JSON); if(!r.token || !r["team-id"]) process.exit(2)'
+                unset RESOLVED RESULT_JSON
+                echo 'POSTMAN_HARNESS identity=verified-service-account-pmak scope=pipeline-first-step'
+                echo 'POSTMAN_HARNESS dependency=postman-cs/postman-resolve-service-token-action ref=v2.0.4 commit=38f8cd423ebcd65ecfcd99336e771ffe2de98b5b'
+
+        - step:
+            type: Run
+            name: Ensure Postman assets
+            identifier: ensure_assets
+            spec:
+              shell: Sh
+              envVariables:
+                POSTMAN_API_KEY: <+secrets.getValue("paypal_postman_service_account_pmak")>
+              command: |-
+                set -eu
+                WS_ID='<+stage.variables.workspace_id>'
+                WS_NAME='<+stage.variables.workspace_name>'
+                WS_TEAM='<+stage.variables.workspace_team_id>'
+                ENV_NAME='<+stage.variables.environment_name>'
+                set -- \
+                  --project-name '<+stage.variables.project_name>' \
+                  --spec-url '<+stage.variables.spec_url>' \
+                  --spec-sha256 '<+stage.variables.spec_sha256>' \
+                  --inventory-url '<+stage.variables.inventory_url>' \
+                  --app-base-url '<+stage.variables.app_base_url>' \
+                  --result-json .postman-stage/provision-result.json
+                case "$WS_ID" in ''|'<+'*) set -- "$@" --workspace-name "$WS_NAME" --workspace-team-id "$WS_TEAM" ;; *) set -- "$@" --workspace-id "$WS_ID" ;; esac
+                case "$ENV_NAME" in ''|'<+'*) ;; *) set -- "$@" --env-name "$ENV_NAME" ;; esac
+                mkdir -p .postman-stage
+                node scripts/ensure-postman-assets.mjs "$@" | tee .postman-stage/provision.out
+                export WORKSPACE_ID=$(grep ^WORKSPACE_ID= .postman-stage/provision.out | cut -d= -f2)
+                export SPEC_ID=$(grep ^SPEC_ID= .postman-stage/provision.out | cut -d= -f2)
+                export CONTRACT_UID=$(grep ^CONTRACT_UID= .postman-stage/provision.out | cut -d= -f2)
+                export SMOKE_UID=$(grep ^SMOKE_UID= .postman-stage/provision.out | cut -d= -f2)
+                export ENVIRONMENT_UID=$(grep ^ENVIRONMENT_UID= .postman-stage/provision.out | cut -d= -f2)
+                export CREATED=$(grep ^CREATED= .postman-stage/provision.out | cut -d= -f2)
+              outputVariables:
+                - name: WORKSPACE_ID
+                - name: SPEC_ID
+                - name: CONTRACT_UID
+                - name: SMOKE_UID
+                - name: ENVIRONMENT_UID
+                - name: CREATED
