@@ -22,6 +22,9 @@
 // CREATED_*) for direct consumption as CI output variables.
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
+// Postman Spec Hub expects YAML spec files. JSON sources are digest-verified
+// as fetched, then deterministically converted; YAML sources upload as-is.
+const { parse: parseYamlDoc, stringify: stringifyYamlDoc } = await import('yaml');
 
 const BASE = 'https://api.getpostman.com';
 const KEY = process.env.POSTMAN_API_KEY;
@@ -80,7 +83,7 @@ if (!WORKSPACE) {
 // 1. Spec: digest-verified, created once, and CONVERGED thereafter — if the
 //    pinned contract changes (new spec_sha256) or Spec Hub content drifts,
 //    the adopted spec's file is updated to match the pinned bytes exactly.
-async function fetchPinnedContract() {
+async function fetchPinnedContractYaml() {
   const contractRes = await fetch(SPEC_URL);
   if (!contractRes.ok) throw new Error(`spec download failed: ${contractRes.status}`);
   const contract = await contractRes.text();
@@ -88,7 +91,11 @@ async function fetchPinnedContract() {
   if (digest !== SPEC_SHA256.toLowerCase()) {
     throw new Error(`spec digest mismatch: expected ${SPEC_SHA256}, got ${digest}`);
   }
-  return contract;
+  // Deterministic canonical YAML: JSON sources are parsed and re-emitted;
+  // YAML sources are normalized the same way so convergence hashing is stable.
+  let doc;
+  try { doc = JSON.parse(contract); } catch { doc = parseYamlDoc(contract); }
+  return stringifyYamlDoc(doc, { lineWidth: 0 });
 }
 
 const specs = (await api('GET', `/specs?workspaceId=${WORKSPACE}`)).specs ?? [];
@@ -98,19 +105,31 @@ if (!spec) {
   spec = await api('POST', `/specs?workspaceId=${WORKSPACE}`, {
     name: PROJECT,
     type: 'OPENAPI:3.0',
-    files: [{ path: 'index.json', content: await fetchPinnedContract() }],
+    files: [{ path: 'index.yaml', content: await fetchPinnedContractYaml() }],
   });
   created.spec = true;
 } else {
   const files = (await api('GET', `/specs/${spec.id}/files`)).files ?? [];
-  const filePath = files[0]?.path ?? 'index.json';
+  const filePath = files[0]?.path ?? 'index.yaml';
   let current = '';
   if (files.length) {
     const f = await api('GET', `/specs/${spec.id}/files/${filePath}`);
     current = typeof f.content === 'string' ? f.content : JSON.stringify(f.content ?? '');
   }
-  if (createHash('sha256').update(current).digest('hex') !== SPEC_SHA256.toLowerCase()) {
-    await api('PATCH', `/specs/${spec.id}/files/${filePath}`, { content: await fetchPinnedContract() });
+  const expectedYaml = await fetchPinnedContractYaml();
+  const expectedDigest = createHash('sha256').update(expectedYaml).digest('hex');
+  if (createHash('sha256').update(current).digest('hex') !== expectedDigest) {
+    if (/\.ya?ml$/.test(filePath)) {
+      await api('PATCH', `/specs/${spec.id}/files/${filePath}`, { content: expectedYaml });
+    } else {
+      // Legacy non-YAML file (e.g. index.json): migrate by recreating the spec.
+      await api('DELETE', `/specs/${spec.id}`);
+      spec = await api('POST', `/specs?workspaceId=${WORKSPACE}`, {
+        name: PROJECT,
+        type: 'OPENAPI:3.0',
+        files: [{ path: 'index.yaml', content: expectedYaml }],
+      });
+    }
     specConverged = true;
   }
 }
