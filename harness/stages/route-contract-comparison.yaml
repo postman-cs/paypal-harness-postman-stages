@@ -102,7 +102,9 @@ stage:
                   --junit-out .route-contract-reports/route-contract.xml
                 case "$SUBSET" in ''|'<+'*) ;; *) set -- "$@" --subset "$SUBSET" ;; esac
                 case "$EXCEPTIONS" in ''|'<+'*) ;; *) set -- "$@" --exceptions "$EXCEPTIONS" ;; esac
-                node scripts/compare-routes.mjs "$@"
+                SCRIPT=scripts/compare-routes.mjs
+                [ -f "$SCRIPT" ] || SCRIPT=/opt/postman-cs/compare-routes.mjs
+                node "$SCRIPT" "$@"
               reports:
                 type: JUnit
                 spec:

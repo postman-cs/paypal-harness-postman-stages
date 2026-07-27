@@ -112,7 +112,9 @@ stage:
                 case "$WS_ID" in ''|'<+'*) set -- "$@" --workspace-name "$WS_NAME" --workspace-team-id "$WS_TEAM" ;; *) set -- "$@" --workspace-id "$WS_ID" ;; esac
                 case "$ENV_NAME" in ''|'<+'*) ;; *) set -- "$@" --env-name "$ENV_NAME" ;; esac
                 mkdir -p .postman-stage
-                node scripts/ensure-postman-assets.mjs "$@" | tee .postman-stage/provision.out
+                SCRIPT=scripts/ensure-postman-assets.mjs
+                [ -f "$SCRIPT" ] || SCRIPT=/opt/postman-cs/ensure-postman-assets.mjs
+                node "$SCRIPT" "$@" | tee .postman-stage/provision.out
                 export WORKSPACE_ID=$(grep ^WORKSPACE_ID= .postman-stage/provision.out | cut -d= -f2)
                 export SPEC_ID=$(grep ^SPEC_ID= .postman-stage/provision.out | cut -d= -f2)
                 export CONTRACT_UID=$(grep ^CONTRACT_UID= .postman-stage/provision.out | cut -d= -f2)

@@ -118,10 +118,14 @@ registry) and skip the local build entirely.
 **Alternative: build it yourself** (air-gapped registries, custom base):
 
 ```
-cd docker/postman-tools
-docker build --platform linux/amd64 -t <your-registry>/postman-tools:node24 .
+docker build --platform linux/amd64 -f docker/postman-tools/Dockerfile \
+  -t <your-registry>/postman-tools:node24 .
 docker push <your-registry>/postman-tools:node24
 ```
+
+The image also bakes the pipeline scripts (`/opt/postman-cs/`), so stages work
+even though your codebase connector points at your own service repository —
+you never vendor Postman-CS scripts into your repo.
 
 The build records the Postman CLI artifact digest inside the image at
 `/opt/postman-cli.tar.gz.sha256`. Rebuild deliberately (new CLI version), not

@@ -1,6 +1,9 @@
-# Approved Harness KubernetesDirect step image: Node 24 + signed Postman CLI,
-# pre-baked so no runtime curl-pipe installation ever happens in a stage.
-# Build:  docker build --platform linux/amd64 -t paypal-harness/postman-tools:node24 .
+# Approved Harness KubernetesDirect step image: Node 24 + signed Postman CLI +
+# the Postman-CS pipeline scripts, pre-baked so no runtime curl-pipe
+# installation ever happens in a stage and customer codebases need not vendor
+# our scripts. Build from the REPO ROOT so the scripts are in context:
+#   docker build --platform linux/amd64 -f docker/postman-tools/Dockerfile \
+#     -t paypal-harness/postman-tools:node24 .
 FROM node:24-bookworm-slim
 
 RUN apt-get update \
@@ -21,5 +24,10 @@ RUN curl -fsSL -o /tmp/postman-cli.tar.gz "$POSTMAN_CLI_URL" \
   && rm /tmp/postman-cli.tar.gz \
   && postman --version \
   && node --version
+
+# Pipeline scripts version-locked to this image. Stages prefer a repo-local
+# copy (stages-repo development) and fall back to these baked copies
+# (customer pipelines, whose codebase is their own service repository).
+COPY scripts/ensure-postman-assets.mjs scripts/compare-routes.mjs /opt/postman-cs/
 
 CMD ["bash"]
