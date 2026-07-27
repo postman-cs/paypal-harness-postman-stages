@@ -1,0 +1,125 @@
+# PAYPAL DROP-IN — bidirectional application-route-versus-OAS comparison with
+# rogue-endpoint detection. Answers the requirement that every spec endpoint
+# exists in the application AND every application endpoint appears in the spec.
+# Pure Run steps: Kubernetes-portable without the privileged Drone plugin.
+# The comparison engine is scripts/compare-routes.mjs from this repository
+# (cloneCodebase pulls it); results publish as JSON + JUnit.
+#
+# Assumptions pending PayPal confirmation (documented defaults, all overridable):
+#   - Route inventory source: Actuator /actuator/mappings when exposed,
+#     generated OpenAPI (/v3/api-docs) otherwise (inventory_url points at either).
+#   - Subset mapping format: subset.json {include:[{pathPrefix|path,method?}],exclude:[...]}
+#     (supports one-to-many and many-to-many app/spec relations by composing files).
+#   - Mismatch policy: block (fail the stage) with an approved-exception register;
+#     warn mode reports everything and passes.
+stage:
+  name: Postman - Route contract comparison
+  identifier: postman_route_contract_comparison
+  type: CI
+  variables:
+    - name: app_base_url
+      type: String
+      required: true
+      value: <+input>
+    - name: inventory_url
+      type: String
+      required: true
+      value: <+input>
+    - name: spec_path
+      type: String
+      required: true
+      value: <+input>
+    - name: subset_path
+      type: String
+      required: false
+      value: <+input>
+    - name: exceptions_path
+      type: String
+      required: false
+      value: <+input>
+    - name: strip_prefix
+      type: String
+      required: false
+      value: <+input>
+    - name: policy
+      type: String
+      required: true
+      value: <+input>.default(block).allowedValues(block,warn)
+  spec:
+    cloneCodebase: true
+    platform:
+      os: Linux
+      arch: Amd64
+    runtime:
+      type: Cloud
+      spec: {}
+    execution:
+      steps:
+        - step:
+            type: Run
+            name: Wait for application health
+            identifier: wait_for_application_health
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                APP='<+stage.variables.app_base_url>'
+                for i in $(seq 1 60); do
+                  CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP/actuator/health" || true)
+                  [ "$CODE" = "200" ] && break
+                  sleep 5
+                done
+                [ "$CODE" = "200" ] || { echo 'Application health endpoint never returned 200.' >&2; exit 2; }
+                echo "application healthy: $APP"
+
+        - step:
+            type: Run
+            name: Export live route inventory
+            identifier: export_route_inventory
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                mkdir -p .route-contract-reports
+                curl -fsS '<+stage.variables.inventory_url>' -o .route-contract-reports/inventory.json
+                echo "inventory exported from <+stage.variables.inventory_url>"
+
+        - step:
+            type: Run
+            name: Compare routes bidirectionally
+            identifier: compare_routes
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                SUBSET='<+stage.variables.subset_path>'
+                EXCEPTIONS='<+stage.variables.exceptions_path>'
+                set -- --spec '<+stage.variables.spec_path>' \
+                  --routes .route-contract-reports/inventory.json \
+                  --strip-prefix '<+stage.variables.strip_prefix>' \
+                  --policy '<+stage.variables.policy>' \
+                  --json-out .route-contract-reports/route-contract.json \
+                  --junit-out .route-contract-reports/route-contract.xml
+                case "$SUBSET" in ''|'<+'*) ;; *) set -- "$@" --subset "$SUBSET" ;; esac
+                case "$EXCEPTIONS" in ''|'<+'*) ;; *) set -- "$@" --exceptions "$EXCEPTIONS" ;; esac
+                SCRIPT=scripts/compare-routes.mjs
+                [ -f "$SCRIPT" ] || SCRIPT=/opt/postman-cs/compare-routes.mjs
+                node "$SCRIPT" "$@"
+              reports:
+                type: JUnit
+                spec:
+                  paths:
+                    - .route-contract-reports/route-contract.xml
+
+        - step:
+            type: Run
+            name: Summarize route-contract artifacts
+            identifier: summarize_route_contract_artifacts
+            when:
+              stageStatus: All
+            spec:
+              shell: Sh
+              command: |-
+                set -eu
+                find .route-contract-reports -maxdepth 1 -type f -print 2>/dev/null | sort || true
+                echo 'POSTMAN_HARNESS event=stage_complete stage=route-contract-comparison writePolicy=none'
