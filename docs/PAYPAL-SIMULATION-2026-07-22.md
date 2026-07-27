@@ -1,9 +1,9 @@
-# Jason simulation — GitHub spec to Harness to Postman
+# PayPal simulation — GitHub spec to Harness to Postman
 
 Date: 2026-07-22
 
 Target: existing team workspace `Winter Trinity`
-Harness pipeline: `PayPal_Jason_Orders_DropIn_Proof`
+Harness pipeline: legacy PayPal Orders proof (person-specific identifier omitted)
 
 ## Result
 
@@ -19,7 +19,7 @@ No Postman asset was created or changed. A second successful run and the final
 asset-ID idempotency comparison therefore remain blocked on workspace RBAC,
 not token minting, GitHub, Harness, the PayPal spec, or the stage implementation.
 
-## Jason-path setup
+## PayPal engineer-path setup
 
 1. Cloned `https://github.com/postman-cs/paypal-harness-postman-stages.git`
    into a new directory, as a PayPal engineer would.

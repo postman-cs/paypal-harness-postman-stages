@@ -55,16 +55,16 @@ longer require that private wrapper repository.
 
 ## Harness definition evidence — 2026-07-22
 
-The composed Jason proof was created once and then updated with the identical
+The composed PayPal Orders proof was created once and then updated with the identical
 two-stage YAML. Both Harness writes returned HTTP 200 with no YAML errors.
 Readback confirmed the regular onboarding SHA, CLI gate, absence of TDD, and
-absence of the personal wrapper. The definition identifier is
-`PayPal_Jason_Orders_DropIn_Proof`. Execution sequence 4 reached the regular
+absence of the personal wrapper. The legacy proof definition's person-specific
+identifier is intentionally omitted. Execution sequence 4 reached the regular
 Postman-CS onboarding core, installed and authenticated Postman CLI 1.44.0,
 selected exact Winter Trinity, and then failed closed before an asset write
 because the available personal PMAK could not mint a service-account token.
 The workspace remained unchanged. See
-`docs/JASON-SIMULATION-2026-07-22.md`.
+`docs/PAYPAL-SIMULATION-2026-07-22.md`.
 
 ## Production handoff hardening — 2026-07-22
 
@@ -80,7 +80,7 @@ The workspace remained unchanged. See
   Apply requires an explicit downstream anchor, writes a mode-0600 local backup,
   reads the Harness definition back, and verifies idempotent linked stages.
 - Added deterministic template generation, collision and ordering tests, source
-  policy tests, connector/template preflight tests, and a non-secret Jason input
+  policy tests, connector/template preflight tests, and a non-secret PayPal input
   manifest. That suite passed 31 tests before the live rehearsal.
 
 ## Service-account and workspace hardening — v0.2.0

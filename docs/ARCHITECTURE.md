@@ -27,7 +27,7 @@ or hidden deployment path.
 
 TDD preview is not the first customer workflow. It remains available in the
 legacy wrapper for future PR-scoped spec-versus-implementation experimentation,
-but it is absent from the Jason Orders handoff.
+but it is absent from the PayPal Orders handoff.
 
 ## CLI-first policy
 

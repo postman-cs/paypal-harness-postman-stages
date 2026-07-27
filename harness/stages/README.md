@@ -12,7 +12,7 @@ approval policy.
 | Bring governed Postman assets back to the repo | `postman-to-git-sync.yaml` | `postman-repo-sync-action` | Local commit only; never pushes |
 | Discover implemented runtime routes for later rogue-endpoint comparison | `runtime-route-discovery.yaml` | `postman-insights-onboarding-action` | Backend-blocked before writes until Insights accepts service-account identity end to end |
 
-## First pipeline for Jason
+## First pipeline for PayPal's technical team
 
 Tonight's first GitHub → Harness → Postman proof is:
 

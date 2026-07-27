@@ -1,3 +1,4 @@
+# Role-based PayPal Orders proof defaults.
 version: 1
 deliverySource:
   repository: postman-cs/paypal-harness-postman-stages
