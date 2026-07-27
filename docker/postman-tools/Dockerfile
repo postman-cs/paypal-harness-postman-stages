@@ -25,9 +25,13 @@ RUN curl -fsSL -o /tmp/postman-cli.tar.gz "$POSTMAN_CLI_URL" \
   && postman --version \
   && node --version
 
-# Pipeline scripts version-locked to this image. Stages prefer a repo-local
-# copy (stages-repo development) and fall back to these baked copies
-# (customer pipelines, whose codebase is their own service repository).
+# Pipeline scripts version-locked to this image, with their one runtime
+# dependency vendored beside them so they run without any repo checkout.
+# Stages prefer these baked copies; repo-local copies are the dev fallback.
 COPY scripts/ensure-postman-assets.mjs scripts/compare-routes.mjs /opt/postman-cs/
+RUN cd /opt/postman-cs \
+  && npm init -y >/dev/null 2>&1 \
+  && npm install --no-audit --no-fund yaml@2.8.1 >/dev/null \
+  && node --input-type=module -e "await import('yaml'); console.log('yaml vendored OK')"
 
 CMD ["bash"]
