@@ -177,6 +177,7 @@ const result = {
   created,
 };
 if (arg('result-json', '')) writeFileSync(arg('result-json'), `${JSON.stringify(result, null, 2)}\n`);
+console.log(`WORKSPACE_ID=${result.workspaceId}`);
 console.log(`SPEC_ID=${result.specId}`);
 console.log(`CONTRACT_UID=${result.contractUid}`);
 console.log(`SMOKE_UID=${result.smokeUid}`);
