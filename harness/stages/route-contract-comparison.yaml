@@ -27,7 +27,15 @@ stage:
       value: <+input>
     - name: spec_path
       type: String
-      required: true
+      required: false
+      value: <+input>
+    - name: spec_url
+      type: String
+      required: false
+      value: <+input>
+    - name: spec_sha256
+      type: String
+      required: false
       value: <+input>
     - name: subset_path
       type: String
@@ -94,7 +102,22 @@ stage:
                 set -eu
                 SUBSET='<+stage.variables.subset_path>'
                 EXCEPTIONS='<+stage.variables.exceptions_path>'
-                set -- --spec '<+stage.variables.spec_path>' \
+                SPEC='<+stage.variables.spec_path>'
+                SPEC_URL='<+stage.variables.spec_url>'
+                SPEC_SHA='<+stage.variables.spec_sha256>'
+                # https for external spec sources; plain http allowed only for
+                # same-cluster URLs (the live app's own generated spec).
+                case "$SPEC_URL" in
+                  ''|'<+'*) ;;
+                  https://*|http://*.svc.cluster.local*|http://*.svc:*|http://localhost*)
+                    SPEC=.route-contract-reports/selected-spec.json
+                    curl --fail --silent --show-error --location "$SPEC_URL" --output "$SPEC"
+                    case "$SPEC_SHA" in ''|'<+'*) ;; *) printf '%s  %s\n' "$SPEC_SHA" "$SPEC" | sha256sum --check --status ;; esac
+                    ;;
+                  *) echo '::error::spec_url must use HTTPS (or an in-cluster http URL).'; exit 2 ;;
+                esac
+                case "$SPEC" in ''|'<+'*) echo '::error::Provide spec_path (repo-relative) or spec_url (HTTPS).'; exit 2 ;; esac
+                set -- --spec "$SPEC" \
                   --routes .route-contract-reports/inventory.json \
                   --strip-prefix '<+stage.variables.strip_prefix>' \
                   --policy '<+stage.variables.policy>' \
