@@ -12,13 +12,15 @@ Primary PayPal contact: Varun (testENV team implements).
 ## 1. What you are receiving
 
 One repository — `postman-cs/paypal-harness-postman-stages` (use `main`) —
-containing three modular Harness CI stages. Each is a single `stage:` object
-you paste under your existing pipeline's `stages:` list. PayPal keeps its
-triggers, connectors, approval policy, and deployment stages.
+containing modular Harness CI stages. Each is a single `stage:` object you
+paste under your existing pipeline's `stages:` list. PayPal keeps its
+triggers, connectors, approval policy, and deployment stages. The default
+generated pipeline (§5) chains the first three rows in order.
 
 | Module | Stage file | What it does |
 | --- | --- | --- |
-| Contract testing (**start here**) | `harness/stages/postman-cli-quality-gate.yaml` | Verifies the service-account identity and exact target workspace, lints the spec, executes approved Postman collections against your live service, publishes JUnit. Read-only. |
+| Provisioning (**runs first**) | `harness/stages/postman-asset-provision.yaml` | Verifies the PMAK is a service-account credential (pipeline-wide, before any Postman call), then idempotently ensures workspace, digest-verified spec, contract + smoke collections, and environment. Emits every asset id as an output variable — reruns adopt, never duplicate. |
+| Contract testing | `harness/stages/postman-cli-quality-gate.yaml` | Verifies the service-account identity and exact target workspace, lints the spec, executes approved Postman collections against your live service, publishes JUnit. Read-only. |
 | Mismatch detection | `harness/stages/route-contract-comparison.yaml` | Bidirectional route check: every spec endpoint must exist in the app; every app endpoint must appear in the selected spec (explicit rogue-endpoint detection). Subset selection, approved-exception register, block/warn policy, JSON + JUnit. |
 | Synchronization | `harness/stages/spec-to-postman-onboarding.yaml` | Digest-verified spec from your repo into Postman (workspace, spec, generated collections). Requires explicit write approval; never writes to Git. **Currently blocked by an upstream Spec Hub issue — see §9.** |
 
@@ -201,20 +203,28 @@ outputs instead of being supplied by hand.
 Run order per the current Linear priority: **contract testing first,
 synchronization second.**
 
-Supply these runtime inputs to the CLI quality-gate stage:
+With the default generated pipeline you supply only these runtime inputs —
+collection and environment ids are wired from the provision stage's outputs
+automatically:
 
-| Variable | Value |
+| Variable (provision stage) | Value |
 | --- | --- |
-| `workspace_id` / `workspace_name` | Your sandbox workspace's exact ID and exact name |
+| `workspace_name` + `workspace_team_id` (or an explicit `workspace_id`) | Sandbox workspace name and the numeric owning sub-team; created on first run if absent |
+| `project_name` | Canonical asset name prefix (default `paypal-orders`) |
 | `spec_url` / `spec_sha256` | Defaults pin PayPal's public Orders v2 contract at commit `9f0f528…`, digest `14db0b9e…` — keep for the demo, replace for your service |
-| `smoke_collection_id` and/or `contract_collection_id` | Approved collection IDs that exist in that workspace |
-| `environment_id` | Postman environment whose `baseUrl` points at your live service (cluster DNS, e.g. `http://<svc>.<ns>.svc.cluster.local:<port>/<context>`) |
+| `inventory_url` | Your app's route inventory: `<app>/actuator/mappings` (preferred) or `<app>/v3/api-docs` |
+| `app_base_url` | Live service base URL over cluster DNS, e.g. `http://<svc>.<ns>.svc.cluster.local:<port>/<context>` |
 
-A green run looks like: Clone codebase → Verify Postman service-account
-identity → Prepare immutable PayPal Orders input → Execute with Postman CLI →
-Summarize CLI artifacts — with JUnit under `.postman-cli-reports/` published
-to Harness Tests, and the same runs visible in the Postman workspace run
-history.
+(Embedding the quality-gate stage standalone into an existing pipeline is
+still supported — then you supply `workspace_id`, `workspace_name`,
+`smoke_collection_id`/`contract_collection_id`, and `environment_id` yourself.)
+
+A green run looks like: identity verify → provision (created or adopted) →
+health wait → route inventory export → bidirectional comparison → Clone
+codebase → workspace identity check → immutable spec input → Execute with
+Postman CLI → artifact summaries — with JUnit published to Harness Tests and
+the same runs visible in the Postman workspace run history. First run from a
+completely empty tenant reached green in ~4 minutes in our proof.
 
 **Complete-results note:** the canonical gate passes `--bail failure` to
 collection runs (stop at first failure). If your reporting requirement is
@@ -227,9 +237,12 @@ captures every endpoint. Decision pending on your side — see §10.
 | --- | --- |
 | Wrong workspace name | Fails at the workspace-identity check, before any collection runs |
 | Wrong spec SHA-256 | Fails at digest verification; the Postman CLI step is skipped entirely |
-| No collection IDs | Refuses with an explicit error (exit 2) |
-| Personal (non-service-account) PMAK | Token minting refuses |
-| Re-run with identical inputs | Identical green result (idempotent) |
+| No collection IDs (standalone gate) | Refuses with an explicit error (exit 2) |
+| Personal (non-service-account) PMAK | Refused by the pipeline's first step, before any Postman call |
+| Application down | Fails at the health-wait step with a plain-language error; everything downstream skipped; recovery = redeploy and rerun, no cleanup |
+| Two simultaneous runs | Both green; adopt-by-name prevents duplicate assets |
+| Workspace deleted entirely | Next run recreates workspace + all assets and reaches green (~4 min) |
+| Re-run with identical inputs | Identical green result; workspace inventory byte-identical across reruns |
 
 ---
 
