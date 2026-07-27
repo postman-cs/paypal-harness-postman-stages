@@ -56,7 +56,9 @@ kubectl get namespaces
    PMAKs are rejected by service-token minting — this is deliberate.
 5. **A sandbox Postman workspace** for first runs. Test operations are locked
    to an exact workspace name+ID pair and fail closed on any mismatch. The
-   service account must have access to this workspace.
+   service account must have access to this workspace. With the provision
+   stage (§5.1) this can be auto-created: pass `--workspace-name` plus the
+   numeric owning sub-team id instead of a workspace id.
 6. **Your Spring Boot service** deployed in a lower environment: listening on
    `0.0.0.0`, known port, `/actuator/health` exposed. For best mismatch
    detection also expose the route inventory:
@@ -147,6 +149,34 @@ Two operational settings we learned the hard way — set them on every Run step:
 
 The emitted pipeline is a **generated projection** of the canonical stages.
 Never hand-edit it; change the canonical stage (via PR) and regenerate.
+
+### 5.1 Reduced-setup path: the idempotent provision stage (recommended)
+
+`scripts/ensure-postman-assets.mjs` removes four manual setup steps — no
+pre-created workspace, no manual spec upload, no hand-collected collection
+IDs, no hand-built environment. Run it as the first pipeline stage; it:
+
+1. Ensures the **workspace** (by exact name; creates under your sub-team when
+   absent — or pass an explicit `--workspace-id`).
+2. Ensures the **spec** (digest-verified from your pinned contract URL; uses
+   the public Specs API, which also avoids the Spec Hub upload issue in §9.1).
+3. Ensures the **contract collection** (generated from the live application's
+   OpenAPI) and a **smoke collection** (health + inventory assertions).
+4. Ensures the **environment** with `baseUrl` pointing at your service, and
+   converges the value if it drifted.
+
+Every asset is adopted by canonical name on reruns — never duplicated — and
+the step emits `SPEC_ID`, `CONTRACT_UID`, `SMOKE_UID`, `ENVIRONMENT_UID` as
+CI output variables that downstream stages consume via Harness expressions,
+so **no asset ID is ever hardcoded in pipeline YAML**.
+
+Proven live (2026-07-27): workspace wiped to zero assets, then three
+consecutive pipeline runs — run 1 created spec + collections + environment,
+runs 2 and 3 adopted them (`CREATED=none-adopted-all`), and the workspace
+inventory after run 3 was byte-identical to run 2 (same four UIDs, counts
+2/1/1, no duplicates). With this stage, §6's `smoke_collection_id`,
+`contract_collection_id`, and `environment_id` inputs are wired to provision
+outputs instead of being supplied by hand.
 
 ---
 
