@@ -81,7 +81,18 @@ prevents a moved tag from silently changing the executed artifact.
   Insights acknowledgement does not accept a service-account identity.
 
 Runtime discovery is necessary for Deirdre's rogue-endpoint requirement, but it
-is not the comparison itself. Comparing implementation inventory one-to-one
-against the OAS contract remains a visible discovery/implementation gate.
+is not the comparison itself. The comparison is now implemented:
+`route-contract-comparison.yaml` + `scripts/compare-routes.mjs` perform the
+bidirectional application-route-versus-OAS check — every spec endpoint must
+exist in the application, every application endpoint must appear in the
+selected spec (explicit rogue detection) — with subset selection, an
+approved-exception register, block/warn policy, and JSON + JUnit output.
+Proven end-to-end on Kubernetes (Harness KubernetesDirect, 2026-07-27) with a
+deliberately injected rogue endpoint and a deliberately unimplemented spec
+endpoint both detected. Route inventory defaults to Actuator
+`/actuator/mappings` when exposed, generated OpenAPI otherwise; the exact
+"full results" definition, the mapping format, and the block/warn/exception
+policy remain open PayPal decisions — current values are documented
+assumptions.
 See `docs/CUSTOMER-TECHNICAL-CONSIDERATIONS.md` for the customer readiness
 checklist and the exact Insights boundary.
