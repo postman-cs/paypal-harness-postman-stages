@@ -180,8 +180,10 @@ IDs, no hand-built environment. Run it as the first pipeline stage; it:
 
 1. Ensures the **workspace** (by exact name; creates under your sub-team when
    absent — or pass an explicit `--workspace-id`).
-2. Ensures the **spec** (digest-verified from your pinned contract URL; uses
-   the public Specs API, which also avoids the Spec Hub upload issue in §9.1).
+2. Ensures the **spec** (digest-verified from your pinned contract URL, then
+   stored as canonical YAML — `index.yaml` — as Postman expects; JSON sources
+   are converted deterministically and content self-heals to the pinned bytes
+   on every run, via the public Specs API).
 3. Ensures the **contract collection** (generated from the live application's
    OpenAPI) and a **smoke collection** (health + inventory assertions).
 4. Ensures the **environment** with `baseUrl` pointing at your service, and
@@ -305,12 +307,16 @@ than duplicating. Run it **after** contract testing is green.
 
 ## 9. Known issues (upstream; tracked by Postman CS)
 
-1. **Spec Hub upload rejects large-ish specs.** `postman-bootstrap` ≤ 2.10.5
-   writes specs through an internal proxy that rejects even the 971 KB pinned
-   Orders contract with "Total size exceeded the limit of 20 MB", while the
-   public Specs API accepts identical content. Escalated to the Postman-CS
-   action owners. Interim: pre-create the spec via the public Specs API and
-   pass `spec_id`, or run contract testing only (it has no Spec Hub write).
+1. **`postman-bootstrap` onboarding is nearly unblocked (status 2026-07-27).**
+   Two upstream defects kept the bootstrap path out of the default pipeline:
+   (a) spec uploads sent a dereferenced expansion that tripped the platform's
+   20 MB limit on `$ref`-heavy specs — **fixed and verified in bootstrap
+   v2.13.1**; (b) collection generation failed fatally when example repair
+   could not compile recursive schemas — fix verified end-to-end from its
+   branch build (spec + all three generated collections landed for the Orders
+   contract), release pending. Once released, the onboarding stage returns to
+   the default emit. Until then the provision stage covers spec sync via the
+   public Specs API and is unaffected by either defect.
 2. **Workspace-scoped lint requires governance rulesets.**
    `postman spec lint --workspace-id` hard-errors on tenants without API
    Governance rulesets configured. Verify your tenant has them (Enterprise
