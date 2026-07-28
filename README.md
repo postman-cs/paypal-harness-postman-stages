@@ -1,31 +1,44 @@
 # PayPal Harness + Postman pipeline stages
 
-This repository packages Postman capabilities as independent Harness stages
-that PayPal can insert into existing pipelines. The customer-facing path is the
-four-file catalog in [`harness/stages`](harness/stages/README.md); it calls
-reviewed `postman-cs` repositories directly and uses Postman CLI as the test
+This repository packages Postman capabilities as independent Harness CI stages
+that PayPal inserts into existing pipelines, plus a generated Kubernetes-native
+pipeline that chains the first-delivery shape end to end. Stages call reviewed
+`postman-cs` repositories directly and use the Postman CLI as the test
 execution plane.
 
-For production, PayPal links the generated Harness stage templates from
-`postman-cs/paypal-harness-postman-stages` rather than copying them or using a
-personal wrapper. Start with the [PayPal handoff](docs/PAYPAL-QUICKSTART.md).
+**Start here: [PayPal service-owner instructions](docs/PAYPAL-SERVICE-OWNER-INSTRUCTIONS.md)**
+— the complete setup-and-run runbook for the first pipeline (provision →
+route-contract comparison → CLI quality gate on `KubernetesDirect`, no
+privileged runners). Generate it with:
+
+```
+pnpm install --frozen-lockfile && pnpm run check
+pnpm harness:kubernetes        # emits harness/pipeline-kubernetes-native.yaml
+```
+
+Verified end-to-end 2026-07-27 on a live AMD64 Kubernetes cluster: green from
+an empty Postman tenant in ~4 minutes, idempotent reruns, fail-closed negative
+paths, and bidirectional rogue-endpoint detection
+([war-games ledger](docs/WAR-GAMES-2026-07-27.md)).
 
 ## One stage per PayPal ask
 
 | Outcome | File |
 | --- | --- |
-| GitHub OAS contract → Postman workspace/spec/collections | `harness/stages/spec-to-postman-onboarding.yaml` |
+| Idempotent workspace/spec/collections/environment provisioning with ids as outputs (identity check first) | `harness/stages/postman-asset-provision.yaml` |
+| Bidirectional app-route-versus-OAS comparison with rogue-endpoint detection | `harness/stages/route-contract-comparison.yaml` |
 | Postman CLI lint + collection quality gate + JUnit | `harness/stages/postman-cli-quality-gate.yaml` |
+| GitHub OAS contract → Postman via the regular onboarding core | `harness/stages/spec-to-postman-onboarding.yaml` |
 | Postman assets → reviewable local Git commit | `harness/stages/postman-to-git-sync.yaml` |
 | Runtime service discovery/linkage for rogue-route analysis | `harness/stages/runtime-route-discovery.yaml` |
 
-The first pipeline for PayPal's technical team is **spec-to-Postman onboarding followed
-by the Postman CLI quality gate**. It uses the immutable public PayPal Orders v2
-contract, an explicit existing-or-create workspace strategy, the
-checksum-verified `postman-cs/postman-bootstrap-action` release binary (the
-regular onboarding core), and approved collection IDs. The Winter Trinity
-rehearsal uses `workspace_mode=existing`; production can use `create` to
-bootstrap and reconcile a new workspace. It does not use the TDD preview action.
+The first pipeline for PayPal's technical team is the generated three-stage
+chain: **provision → route-contract comparison → CLI quality gate**, using the
+immutable public PayPal Orders v2 contract as the demo input. The onboarding
+stage (bootstrap core) rejoins the default emit once its verified upstream fix
+is released — see the known-issues section of the service-owner instructions.
+The git-sync and route-discovery stages remain GitHub-Actions-based drop-ins
+and are not part of the Kubernetes default.
 
 ## Product stance
 
