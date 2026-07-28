@@ -47,9 +47,7 @@ kubectl get namespaces
 1. **AMD64 Linux nodes.** The Postman-CS binaries require Linux AMD64. An
    ARM64 cluster needs an AMD64 node pool (or emulation, not recommended).
 2. **A dedicated CI namespace** (example: `paypal-postman-ci`). Plain Run
-   steps only — **no privileged pods are required**. (The old
-   `pipeline-kubernetes.yaml` needed privileged Docker-in-Docker; it is
-   retired — do not deploy it.)
+   steps only — **no privileged pods are required**.
 3. **Outbound egress** from that namespace to: `github.com`,
    `raw.githubusercontent.com`, `api.getpostman.com`, `dl-cli.pstmn.io`,
    `*.gw.postman.com`, `app.harness.io`, `us-docker.pkg.dev`.

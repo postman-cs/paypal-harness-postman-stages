@@ -1,6 +1,6 @@
 # GENERATED from the canonical drop-in stages; run pnpm harness:kubernetes to refresh.
-# Kubernetes-native replacement for the legacy pipeline-kubernetes.yaml: no
-# GitHub Actions Drone plugin and no privileged Docker-in-Docker. Replace all
+# Kubernetes-native pipeline: no GitHub Actions Drone plugin and no
+# privileged Docker-in-Docker. Replace all
 # PAYPAL_* placeholders through the Harness UI before saving. PAYPAL_TOOLS_IMAGE
 # must pre-bake Node 24 and the signed Postman CLI (see docker/postman-tools).
 # No credential belongs in this file.

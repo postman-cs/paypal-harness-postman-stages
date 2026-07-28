@@ -5,10 +5,9 @@ import { parse, stringify } from 'yaml';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-// Kubernetes-native projection of the canonical PayPal stages. Unlike the
-// legacy harness/pipeline-kubernetes.yaml (GitHub Actions Drone plugin,
-// privileged Docker-in-Docker), these stages are plain Run steps on
-// KubernetesDirect infrastructure and need no privileged runner. Every Run
+// Kubernetes-native projection of the canonical PayPal stages: plain Run
+// steps on KubernetesDirect infrastructure, no privileged runner (the earlier
+// wrapper approach needed the privileged Drone plugin and was removed). Every Run
 // step executes inside PAYPAL_TOOLS_IMAGE, which must pre-bake Node 24 and
 // the signed Postman CLI; runtime curl-pipe CLI installation stays forbidden.
 // Default emitted shape is the proven day-one pipeline: provision (identity
@@ -106,8 +105,8 @@ export function buildKubernetesNativePipeline() {
   };
   const header = [
     '# GENERATED from the canonical drop-in stages; run pnpm harness:kubernetes to refresh.',
-    '# Kubernetes-native replacement for the legacy pipeline-kubernetes.yaml: no',
-    '# GitHub Actions Drone plugin and no privileged Docker-in-Docker. Replace all',
+    '# Kubernetes-native pipeline: no GitHub Actions Drone plugin and no',
+    '# privileged Docker-in-Docker. Replace all',
     '# PAYPAL_* placeholders through the Harness UI before saving. PAYPAL_TOOLS_IMAGE',
     '# must pre-bake Node 24 and the signed Postman CLI (see docker/postman-tools).',
     '# No credential belongs in this file.',
