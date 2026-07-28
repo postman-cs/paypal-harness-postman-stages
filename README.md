@@ -131,16 +131,9 @@ wrapper contract.
 
 ## Existing full-pipeline references
 
-`harness/pipeline-cloud-vm.yaml`, `harness/pipeline-kubernetes.yaml`, and
-`harness/pipeline-studio-sandbox.yaml` remain as additive reference pipelines.
-They use the private wrapper at immutable revision
-`e6b290c034aa1cc8a144578041fbd652b1f4f09f`; they are not the customer handoff
-path.
-
-The last green wrapper repeatability proof is GitHub Actions run
-[`29946049355`](https://github.com/danielshively-source/paypal-harness-pipeline/actions/runs/29946049355).
-It proves the repository contract and deterministic read-only behavior, not a
-credentialed PayPal Postman round trip.
+The generated `harness/pipeline-kubernetes-native.yaml` is the only pipeline
+artifact; earlier wrapper-based reference pipelines have been removed in favor
+of the drop-in stages plus this generated chain.
 
 See the [drop-in guide](docs/PAYPAL-DROP-IN.md), [requirements](docs/PAYPAL-REQUIREMENTS.md),
 [idempotency contract](docs/IDEMPOTENCY.md), [build log](docs/BUILD-LOG.md), and

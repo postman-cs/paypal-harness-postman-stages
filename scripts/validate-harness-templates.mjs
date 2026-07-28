@@ -5,12 +5,6 @@ import { parsePostmanUses, verifySupplyChain } from './verify-supply-chain.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lock = JSON.parse(readFileSync(resolve(root, 'postman-cs.lock.json'), 'utf8'));
-const wrapperPin = 'danielshively-source/paypal-harness-pipeline@e6b290c034aa1cc8a144578041fbd652b1f4f09f';
-const wrapperTemplates = [
-  'harness/pipeline-cloud-vm.yaml',
-  'harness/pipeline-kubernetes.yaml',
-  'harness/pipeline-studio-sandbox.yaml',
-];
 const stageTemplates = [
   'harness/stages/spec-to-postman-onboarding.yaml',
   'harness/stages/postman-cli-quality-gate.yaml',
@@ -44,11 +38,14 @@ function checkSecretsAndMutableRefs(relative, source) {
   }
 }
 
-for (const relative of wrapperTemplates) {
+// The generated Kubernetes-native pipeline is the only pipeline artifact;
+// it must carry no secrets, no mutable refs, and no personal namespaces.
+{
+  const relative = 'harness/pipeline-kubernetes-native.yaml';
   const source = readFileSync(resolve(root, relative), 'utf8');
   checkSecretsAndMutableRefs(relative, source);
-  if (!source.includes(wrapperPin)) {
-    console.error(`ERROR: ${relative} must use the approved immutable wrapper commit.`);
+  if (source.includes('danielshively')) {
+    console.error(`ERROR: ${relative} must not reference a personal namespace.`);
     failed = true;
   }
 }
@@ -123,4 +120,4 @@ for (const required of [/postman spec lint/, /postman collection run/, /type: JU
 }
 
 if (failed) process.exitCode = 1;
-else console.log(`Validated ${wrapperTemplates.length} wrapper pipeline(s), ${stageTemplates.length} customer drop-in stage(s), and ${remoteTemplates.length} production remote template(s).`);
+else console.log(`Validated the generated pipeline, ${stageTemplates.length} customer drop-in stage(s), and ${remoteTemplates.length} production remote template(s).`);

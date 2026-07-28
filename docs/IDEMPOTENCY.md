@@ -9,11 +9,10 @@
 
 ## Automated proof available now
 
-GitHub Actions run
-[`29946049355`](https://github.com/danielshively-source/paypal-harness-pipeline/actions/runs/29946049355)
-executes the legacy wrapper's public Orders validation and synthetic Postman CLI
-surface twice. Each pair produces one stable fingerprint/path; the CLI fixture
-asserts two collection runs and no mutating Postman command.
+The wipe-and-rerun idempotency campaign of 2026-07-27 is the current proof:
+from an empty workspace, consecutive pipeline runs created assets once and
+adopted them thereafter, with the workspace inventory byte-identical across
+reruns. See [WAR-GAMES-2026-07-27.md](WAR-GAMES-2026-07-27.md).
 
 The drop-in stage test suite additionally enforces stable-ID inputs, explicit
 write approvals, direct Postman-CS commit pins, `repo-write-mode=none` for

@@ -12,7 +12,7 @@ published back to Harness.
 | 1 | AMD64 Linux nodes | `kubectl get nodes -o custom-columns=NAME:.metadata.name,ARCH:.status.nodeInfo.architecture` must say `amd64`. ARM64 (Apple-Silicon-style) clusters need AMD64 node pools. |
 | 2 | Harness delegate in the cluster | Helm chart `harness-delegate/harness-delegate-ng`. **Pin a versioned image** (`GET /ng/api/delegate-setup/latest-supported-version`); the `latest` tag does not exist upstream. Give it ≥2 GiB memory. |
 | 3 | Kubernetes connector | `InheritFromDelegate` + your delegate selector. |
-| 4 | Dedicated CI namespace | e.g. `paypal-postman-ci`. Plain Run steps only — **no privileged pods required** (unlike the legacy `pipeline-kubernetes.yaml`, which is retired). |
+| 4 | Dedicated CI namespace | e.g. `paypal-postman-ci`. Plain Run steps only — **no privileged pods required** (the legacy privileged Docker-in-Docker wrapper pipeline has been removed from this repository). |
 | 5 | Registry connector | **Required**: every Run step on Kubernetes infrastructure must carry a registry `connectorRef`; Harness rejects the pipeline otherwise. Do **not** use the built-in `account.harnessImage` for your tools image — it is a mirror that rewrites image paths to `us-docker.pkg.dev/...` and the pull fails. Create a plain DockerHub/registry connector (anonymous works for public images). |
 | 6 | Tools image | Build `docker/postman-tools/Dockerfile` (Node 24 + signed Postman CLI pre-baked) and push to a registry your cluster can reach. Runtime `curl \| sh` CLI installs are rejected by the gate — this is deliberate. |
 | 7 | Secret `paypal_postman_service_account_pmak` | Project-scope Harness secret holding the **service-account** PMAK. Personal-user PMAKs are rejected by token minting. |
