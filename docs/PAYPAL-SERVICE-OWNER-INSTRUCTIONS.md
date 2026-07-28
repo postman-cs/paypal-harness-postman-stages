@@ -109,13 +109,8 @@ Every Run step executes inside one image that pre-bakes Node 24 and the signed
 Postman CLI. Runtime `curl | sh` installation is rejected by the gate — this
 is a supply-chain control, not an inconvenience.
 
-**Preferred: pull the published image.** The repository's
-`publish-tools-image` workflow publishes
-`ghcr.io/postman-cs/postman-tools:node24` on every Dockerfile change to
-`main` — point `PAYPAL_TOOLS_IMAGE` at it (or mirror it into your internal
-registry) and skip the local build entirely.
-
-**Alternative: build it yourself** (air-gapped registries, custom base):
+**Primary path: build once and push to your own registry** — one command, and
+it matches how enterprise clusters consume approved images anyway:
 
 ```
 docker build --platform linux/amd64 -f docker/postman-tools/Dockerfile \
@@ -126,6 +121,10 @@ docker push <your-registry>/postman-tools:node24
 The image also bakes the pipeline scripts (`/opt/postman-cs/`), so stages work
 even though your codebase connector points at your own service repository —
 you never vendor Postman-CS scripts into your repo.
+
+(The repository's `publish-tools-image` workflow also publishes
+`ghcr.io/postman-cs/postman-tools:node24` on every image change; if that
+package is visible to your tooling you can mirror it instead of building.)
 
 The build records the Postman CLI artifact digest inside the image at
 `/opt/postman-cli.tar.gz.sha256`. Rebuild deliberately (new CLI version), not

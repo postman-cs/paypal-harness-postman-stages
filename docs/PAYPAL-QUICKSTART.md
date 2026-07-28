@@ -1,3 +1,5 @@
+> **Superseded 2026-07-27** by [PAYPAL-SERVICE-OWNER-INSTRUCTIONS.md](PAYPAL-SERVICE-OWNER-INSTRUCTIONS.md) (Kubernetes-native first pipeline). This page describes the earlier Cloud-runtime template flow and is kept for reference.
+
 # PayPal handoff: add the Postman stages to a PayPal Harness pipeline
 
 PayPal engineers do **not** add these stages to Daniel's Harness account. PayPal imports

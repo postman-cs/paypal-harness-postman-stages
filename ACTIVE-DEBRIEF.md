@@ -1,3 +1,5 @@
+> **Superseded 2026-07-27.** This debrief is a 2026-07-22 snapshot from before the Kubernetes delivery. Current state: [PAYPAL-SERVICE-OWNER-INSTRUCTIONS.md](docs/PAYPAL-SERVICE-OWNER-INSTRUCTIONS.md) and [WAR-GAMES-2026-07-27.md](docs/WAR-GAMES-2026-07-27.md). Kept for history only.
+
 # PayPal Harness Pipeline — Active Debrief
 > Auto-updated from connected and local project sources. Last checked: 2026-07-22T18:05:27Z
 
